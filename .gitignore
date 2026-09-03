@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+
+# Tools
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Node (future web console)
+node_modules/
+apps/web/dist/
+apps/web/coverage/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker / local data
+.docker-data/
+
+# Eval reports are generated, not hand-written
+evals/reports/*.json
+evals/reports/*.md
+!evals/reports/.gitkeep
