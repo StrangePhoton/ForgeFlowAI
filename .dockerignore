@@ -15,7 +15,6 @@ htmlcov
 tests
 docs
 evals
-sample_data
 apps/web/node_modules
 **/*.md
 !README.md

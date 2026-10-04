@@ -1,7 +1,7 @@
 PYTHON ?= python
 COMPOSE ?= docker compose
 
-.PHONY: help install lint format typecheck test check up down logs migrate
+.PHONY: help install lint format typecheck test check up down logs migrate seed
 
 help:
 	@echo "install     Install the package with dev extras"
@@ -14,6 +14,7 @@ help:
 	@echo "down        Stop Compose services"
 	@echo "logs        Follow API logs"
 	@echo "migrate     Apply Alembic migrations"
+	@echo "seed        Load synthetic industrial data (--reset)"
 
 install:
 	$(PYTHON) -m pip install -e ".[dev]"
@@ -46,3 +47,6 @@ logs:
 
 migrate:
 	alembic upgrade head
+
+seed:
+	$(PYTHON) -m forgeflow.domain.seed --reset

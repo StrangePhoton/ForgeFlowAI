@@ -26,3 +26,10 @@ class DependencyUnavailableError(ForgeFlowError):
 
     def __init__(self, message: str = "A required dependency is unavailable") -> None:
         super().__init__(message, code="dependency_unavailable", status_code=503)
+
+
+class NotFoundError(ForgeFlowError):
+    """The requested domain object does not exist."""
+
+    def __init__(self, message: str = "Resource not found") -> None:
+        super().__init__(message, code="not_found", status_code=404)

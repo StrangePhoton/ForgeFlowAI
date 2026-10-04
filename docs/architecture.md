@@ -2,14 +2,16 @@
 
 ForgeFlow AI is a modular monolith. One Python package (`forgeflow`) owns domain logic, agent orchestration, retrieval, and security. Process entrypoints live under `apps/`. MCP servers may run as separate processes later, but they share the same package and database rather than becoming a microservice mesh.
 
-## Milestone 0 scope
+## Milestone 1 scope
 
 Implemented now:
 
 - FastAPI application factory with `/api/v1/health` and `/api/v1/ready`
+- Equipment registry and history APIs under `/api/v1/equipment`
 - Pydantic Settings loaded from the environment
 - Async SQLAlchemy engine and session factory
-- Alembic migrations, including `CREATE EXTENSION vector`
+- Alembic migrations, including `CREATE EXTENSION vector` and industrial tables
+- Deterministic synthetic seed (CNC-042 overheating scenario)
 - Structured JSON logging and request IDs
 - Docker Compose services: `postgres`, `api`
 
@@ -75,6 +77,7 @@ flowchart TB
 | `forgeflow/db` | Engine, session, Alembic | 0 |
 | `forgeflow/observability` | Logging (metrics in M9) | 0 |
 | `forgeflow/domain` | Equipment, telemetry, work orders | 1 |
+| `forgeflow/services` | Read queries for industrial data | 1 |
 | `forgeflow/mcp` | MCP servers and tool schemas | 2 |
 | `forgeflow/agent` | LangGraph, providers, prompts | 3 |
 | `forgeflow/retrieval` | Ingestion, embeddings, search | 4 |
@@ -84,12 +87,18 @@ flowchart TB
 
 ## HTTP API
 
-Versioned under `/api/v1`. Milestone 0 exposes:
+Versioned under `/api/v1`. Milestone 1 exposes:
 
 | Method | Path | Meaning |
 | --- | --- | --- |
 | GET | `/api/v1/health` | Process liveness; no database access |
 | GET | `/api/v1/ready` | Readiness; `SELECT 1` against PostgreSQL |
+| GET | `/api/v1/equipment` | List seeded assets |
+| GET | `/api/v1/equipment/{code}` | Equipment by code or UUID |
+| GET | `/api/v1/equipment/{code}/sensor-history` | Telemetry; default last 30 days |
+| GET | `/api/v1/equipment/{code}/alarm-history` | Alarms; default last 30 days |
+| GET | `/api/v1/equipment/{code}/maintenance-history` | Maintenance records |
+| GET | `/api/v1/equipment/{code}/work-orders` | Work orders for the asset |
 | GET | `/docs` | OpenAPI Swagger UI |
 | GET | `/openapi.json` | OpenAPI schema |
 
@@ -97,7 +106,9 @@ Errors use `{ "error": { "code", "message", "details?" } }`.
 
 ## Persistence
 
-PostgreSQL is the system of record for operational data, checkpoints, audit events, and embeddings. pgvector is enabled in the first migration so later retrieval work does not require a second database. Domain tables start in Milestone 1.
+PostgreSQL is the system of record for operational data, checkpoints, audit events, and embeddings. pgvector is enabled in the first migration. Milestone 1 adds `equipment`, `sensor_readings`, `alarms`, `maintenance_records`, and `work_orders`.
+
+Synthetic catalogs live in `sample_data/`. Hourly telemetry is generated at seed time by `python -m forgeflow.domain.seed`.
 
 ## Configuration
 

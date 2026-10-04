@@ -1,0 +1,32 @@
+[
+  {
+    "equipment_code": "PRESS-HYD-03",
+    "number": "WO-2025-1188",
+    "title": "Replace hydraulic seal pack",
+    "description": "Repair slow ram bleed-down on PRESS-HYD-03.",
+    "status": "completed",
+    "priority": "high",
+    "created_offset_days": -214,
+    "completed_offset_days": -210
+  },
+  {
+    "equipment_code": "COMPRESSOR-C09",
+    "number": "WO-2026-0412",
+    "title": "Replace intake filter",
+    "description": "Preventive filter change on COMPRESSOR-C09.",
+    "status": "completed",
+    "priority": "medium",
+    "created_offset_days": -10,
+    "completed_offset_days": -8
+  },
+  {
+    "equipment_code": "CONVEYOR-B17",
+    "number": "WO-2026-0501",
+    "title": "Investigate intermittent belt squeal",
+    "description": "Operator report of squeal on start-up. Tracking PM already completed; monitor next 14 days.",
+    "status": "open",
+    "priority": "low",
+    "created_offset_days": -3,
+    "completed_offset_days": null
+  }
+]

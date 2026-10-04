@@ -1,6 +1,6 @@
 # Contributing
 
-ForgeFlow AI is developed in vertical slices. Milestone 0 is the current baseline: keep the repository bootable with `docker compose up` and a passing test suite after every change.
+ForgeFlow AI is developed in vertical slices. Milestone 1 is the current baseline: keep the repository bootable with `docker compose up`, a passing test suite, and a seedable CNC-042 plant.
 
 ## Development setup
 
@@ -15,6 +15,7 @@ python -m venv .venv
 python -m pip install -e ".[dev]"
 docker compose up postgres -d
 alembic upgrade head
+python -m forgeflow.domain.seed --reset
 pytest
 ```
 

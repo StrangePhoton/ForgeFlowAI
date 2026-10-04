@@ -36,6 +36,8 @@ Verify:
 ```bash
 curl http://localhost:8000/api/v1/health
 curl http://localhost:8000/api/v1/ready
+docker compose exec api python -m forgeflow.domain.seed --reset
+curl http://localhost:8000/api/v1/equipment/CNC-042
 ```
 
 Expected health payload includes `"status": "healthy"`. Ready returns `"status": "ready"` once Postgres accepts connections.
@@ -50,6 +52,7 @@ python -m venv .venv
 # Windows: .\.venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
 alembic upgrade head
+python -m forgeflow.domain.seed --reset
 uvicorn apps.api.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
@@ -64,7 +67,15 @@ mypy forgeflow apps
 pytest
 ```
 
-`tests/integration` talks to PostgreSQL when it is reachable and skips otherwise.
+`tests/integration` talks to PostgreSQL when it is reachable and skips otherwise. Seeded CNC-042 assertions run in unit tests without a database.
+
+## Seed data
+
+```bash
+python -m forgeflow.domain.seed --reset
+```
+
+`--reset` deletes existing industrial rows, then inserts the synthetic plant.
 
 ## Migrations
 
@@ -77,4 +88,4 @@ Do not put credentials in `alembic.ini`. The env script reads `DATABASE_URL` thr
 
 ## Frontend, Ollama, Prometheus, Grafana
 
-Not part of Milestone 0. Compose does not start those services yet.
+Not part of Milestone 1. Compose does not start those services yet.

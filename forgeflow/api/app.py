@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from forgeflow import __version__
 from forgeflow.api.errors import register_exception_handlers
 from forgeflow.api.middleware import RequestIdMiddleware
+from forgeflow.api.routes.equipment import router as equipment_router
 from forgeflow.api.routes.health import router as health_router
 from forgeflow.config import get_settings
 from forgeflow.db.session import Database
@@ -49,4 +50,5 @@ def create_app() -> FastAPI:
     application.add_middleware(RequestIdMiddleware)
     register_exception_handlers(application)
     application.include_router(health_router, prefix=settings.api_prefix)
+    application.include_router(equipment_router, prefix=settings.api_prefix)
     return application

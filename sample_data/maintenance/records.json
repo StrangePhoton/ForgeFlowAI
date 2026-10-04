@@ -1,0 +1,68 @@
+[
+  {
+    "equipment_code": "CNC-042",
+    "offset_days": -140,
+    "hour_utc": 9,
+    "maintenance_type": "inspection",
+    "title": "Cooling system inspection",
+    "description": "Quarterly inspection of the FX-400 coolant loop, radiator, and intake filter. Filter was serviceable. No work order opened for replacement.",
+    "technician": "M. Hale",
+    "result": "completed",
+    "next_due_offset_days": -50
+  },
+  {
+    "equipment_code": "CNC-042",
+    "offset_days": -40,
+    "hour_utc": 11,
+    "maintenance_type": "preventive",
+    "title": "Spindle lubrication PM",
+    "description": "Scheduled spindle lubrication and way-cover check. No thermal findings recorded.",
+    "technician": "R. Okonkwo",
+    "result": "completed",
+    "next_due_offset_days": 50
+  },
+  {
+    "equipment_code": "PUMP-AX200",
+    "offset_days": -18,
+    "hour_utc": 8,
+    "maintenance_type": "inspection",
+    "title": "Seal and bearing inspection",
+    "description": "Visual inspection of mechanical seal and bearing housing. Vibration within spec.",
+    "technician": "S. Berg",
+    "result": "completed",
+    "next_due_offset_days": 72
+  },
+  {
+    "equipment_code": "CONVEYOR-B17",
+    "offset_days": -12,
+    "hour_utc": 6,
+    "maintenance_type": "preventive",
+    "title": "Belt tracking and idler lube",
+    "description": "Belt tracking adjusted 4 mm. Idlers greased.",
+    "technician": "P. Nguyen",
+    "result": "completed",
+    "next_due_offset_days": 78
+  },
+  {
+    "equipment_code": "PRESS-HYD-03",
+    "offset_days": -210,
+    "hour_utc": 14,
+    "maintenance_type": "repair",
+    "title": "Hydraulic seal pack replacement",
+    "description": "Replaced ram seal pack after slow pressure bleed-down. Press returned to service.",
+    "technician": "A. Rossi",
+    "result": "completed",
+    "next_due_offset_days": 155
+  },
+  {
+    "equipment_code": "COMPRESSOR-C09",
+    "offset_days": -8,
+    "hour_utc": 10,
+    "maintenance_type": "filter_change",
+    "title": "Intake filter replacement",
+    "description": "Replaced air intake filter. Discharge temperature normal after change.",
+    "technician": "K. Iwasaki",
+    "result": "completed",
+    "next_due_offset_days": 82
+  }
+]

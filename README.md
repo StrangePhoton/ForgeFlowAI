@@ -2,7 +2,7 @@
 
 Production-oriented industrial agentic AI platform. An engineer can submit an operational request; the system plans an investigation, gathers equipment telemetry, alarms, maintenance history, and technical documentation, produces an evidence-backed root-cause report, and pauses before high-impact actions for human approval.
 
-**Current status: Milestone 0 (architecture and bootstrap).** The HTTP API, PostgreSQL, migrations, structured logging, tests, and Docker Compose core stack exist. The agent, MCP tools, RAG pipeline, authentication, and web console are not implemented yet.
+**Current status: Milestone 1 (industrial domain).** The API can read a synthetic plant, including the CNC-042 overheating scenario. The agent, MCP tools, RAG pipeline, authentication, and web console are not implemented yet.
 
 ## Problem
 
@@ -10,8 +10,9 @@ Industrial investigations mix noisy operational data, technical manuals, and wri
 
 ## What works today
 
-- FastAPI application with versioned health and readiness endpoints
-- PostgreSQL 16 with the `vector` extension enabled via Alembic
+- FastAPI application with versioned health, readiness, and equipment history endpoints
+- PostgreSQL 16 with pgvector enabled and industrial tables for equipment, telemetry, alarms, maintenance, and work orders
+- Deterministic synthetic seed for five fictional machines, including CNC-042
 - Environment-based configuration (including unused LLM provider settings reserved for Milestone 3)
 - JSON structured logging with secret redaction
 - Docker Compose for `postgres` and `api`
@@ -45,14 +46,14 @@ flowchart LR
     HITL --> User
 ```
 
-Milestone 0 implements only the API process, configuration, logging, and database bootstrap:
+Milestone 1 implements the operational data plane the later agent will read through tools:
 
 ```mermaid
 flowchart LR
     Client[HTTP client] --> API[FastAPI /api/v1]
-    API --> Health["/health liveness"]
-    API --> Ready["/ready pings Postgres"]
-    API --> DB[(PostgreSQL + pgvector)]
+    API --> Health["/health /ready"]
+    API --> Equip["/equipment CNC-042 history"]
+    Equip --> DB[(PostgreSQL)]
 ```
 
 ## Technology stack
@@ -73,6 +74,7 @@ git clone <repository-url>
 cd forgeflow-ai
 cp .env.example .env
 docker compose up --build
+docker compose exec api python -m forgeflow.domain.seed --reset
 ```
 
 Then:
@@ -80,11 +82,24 @@ Then:
 ```bash
 curl http://localhost:8000/api/v1/health
 curl http://localhost:8000/api/v1/ready
+curl http://localhost:8000/api/v1/equipment/CNC-042
 ```
 
 Interactive API docs: [http://localhost:8000/docs](http://localhost:8000/docs)
 
 Default local credentials in `.env.example` are for development only.
+
+## Demo scenario
+
+CNC-042 (ForgeMach FX-400) has a planted last-30-day pattern:
+
+- rising temperature
+- declining coolant flow
+- nine `TEMP_HIGH` alarms
+- overdue cooling-system inspection
+- no open work order for cooling
+
+Peer assets (PUMP-AX200, CONVEYOR-B17, PRESS-HYD-03, COMPRESSOR-C09) do not share that pattern.
 
 ## Local checks (without Docker)
 
@@ -100,11 +115,13 @@ mypy forgeflow apps
 pytest
 ```
 
-Integration readiness tests skip automatically when PostgreSQL is not reachable.
+Integration tests skip automatically when PostgreSQL is not reachable. Against a migrated database:
 
-## Demo scenario
-
-The CNC-042 overheating investigation is scheduled for Milestone 1 (synthetic data) and Milestone 3 (first agent run). It is not runnable in Milestone 0.
+```powershell
+alembic upgrade head
+python -m forgeflow.domain.seed --reset
+pytest -m integration
+```
 
 ## License
 

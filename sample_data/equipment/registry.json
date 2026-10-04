@@ -1,0 +1,69 @@
+[
+  {
+    "code": "CNC-042",
+    "name": "Finish mill cell 4",
+    "equipment_type": "cnc",
+    "model": "FX-400",
+    "manufacturer": "ForgeMach",
+    "location": "Bay A / Cell 4",
+    "status": "alarm",
+    "installed_at": "2021-03-12T08:00:00+00:00",
+    "attributes": {
+      "coolant_loop": true,
+      "cooling_inspection_interval_days": 90,
+      "temp_high_threshold_c": 75
+    }
+  },
+  {
+    "code": "PUMP-AX200",
+    "name": "Process water pump A",
+    "equipment_type": "pump",
+    "model": "AX-200",
+    "manufacturer": "AquaDrive",
+    "location": "Utility room / Skid 2",
+    "status": "running",
+    "installed_at": "2020-11-02T08:00:00+00:00",
+    "attributes": {
+      "coolant_loop": false
+    }
+  },
+  {
+    "code": "CONVEYOR-B17",
+    "name": "Outbound packing conveyor",
+    "equipment_type": "conveyor",
+    "model": "B-Series-17",
+    "manufacturer": "BeltLine",
+    "location": "Bay B / Pack-out",
+    "status": "running",
+    "installed_at": "2019-06-18T08:00:00+00:00",
+    "attributes": {
+      "coolant_loop": false
+    }
+  },
+  {
+    "code": "PRESS-HYD-03",
+    "name": "Hydraulic forming press 3",
+    "equipment_type": "press",
+    "model": "H-300",
+    "manufacturer": "HydroForm",
+    "location": "Bay C / Forming",
+    "status": "running",
+    "installed_at": "2018-09-04T08:00:00+00:00",
+    "attributes": {
+      "coolant_loop": false
+    }
+  },
+  {
+    "code": "COMPRESSOR-C09",
+    "name": "Plant air compressor 9",
+    "equipment_type": "compressor",
+    "model": "C-09",
+    "manufacturer": "AirCore",
+    "location": "Compressor house",
+    "status": "running",
+    "installed_at": "2022-01-20T08:00:00+00:00",
+    "attributes": {
+      "coolant_loop": false
+    }
+  }
+]

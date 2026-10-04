@@ -1,1 +1,5 @@
-"""Application services. Implementation starts in Milestone 1."""
+"""Application services."""
+
+from forgeflow.services.industrial import IndustrialQueryService
+
+__all__ = ["IndustrialQueryService"]

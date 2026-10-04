@@ -11,6 +11,13 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from forgeflow.config import get_settings
 from forgeflow.db.base import Base
+from forgeflow.domain.models import (  # noqa: F401
+    Alarm,
+    Equipment,
+    MaintenanceRecord,
+    SensorReading,
+    WorkOrder,
+)
 
 config = context.config
 
