@@ -9,17 +9,24 @@ from pydantic import BaseModel, ValidationError
 from forgeflow.errors import ForgeFlowError, ToolTimeoutError, ToolValidationError
 from forgeflow.mcp.authz import AllowAllAuthorizer, ToolAuthorizer
 from forgeflow.mcp.schemas import (
+    CREATE_WORK_ORDER,
     GET_ALARM_HISTORY,
     GET_EQUIPMENT,
     GET_MAINTENANCE_HISTORY,
     GET_SENSOR_HISTORY,
+    SEARCH_DOCUMENTATION,
     AlarmHistoryResult,
+    CreateWorkOrderInput,
+    DocumentationHit,
+    DocumentationSearchResult,
     EquipmentIdInput,
     HistoryWindowInput,
     MaintenanceHistoryResult,
+    SearchDocumentationInput,
     SensorHistoryResult,
 )
 from forgeflow.observability.logging import get_logger
+from forgeflow.retrieval.search.hits import DocumentSearcher
 from forgeflow.services.protocols import IndustrialReader
 
 logger = get_logger(__name__)
@@ -34,6 +41,7 @@ class ToolRegistry:
         self,
         reader: IndustrialReader,
         *,
+        documents: DocumentSearcher | None = None,
         timeout_seconds: float = 15.0,
         authorizer: ToolAuthorizer | None = None,
     ) -> None:
@@ -44,14 +52,19 @@ class ToolRegistry:
             GET_SENSOR_HISTORY: HistoryWindowInput,
             GET_ALARM_HISTORY: HistoryWindowInput,
             GET_MAINTENANCE_HISTORY: EquipmentIdInput,
+            SEARCH_DOCUMENTATION: SearchDocumentationInput,
+            CREATE_WORK_ORDER: CreateWorkOrderInput,
         }
         self._handlers: dict[str, Handler] = {
             GET_EQUIPMENT: self._get_equipment,
             GET_SENSOR_HISTORY: self._get_sensor_history,
             GET_ALARM_HISTORY: self._get_alarm_history,
             GET_MAINTENANCE_HISTORY: self._get_maintenance_history,
+            SEARCH_DOCUMENTATION: self._search_documentation,
+            CREATE_WORK_ORDER: self._create_work_order,
         }
         self._reader = reader
+        self._documents = documents
 
     @property
     def timeout_seconds(self) -> float:
@@ -102,3 +115,34 @@ class ToolRegistry:
         args = EquipmentIdInput.model_validate(payload.model_dump())
         items = await self._reader.maintenance_history(args.equipment_id)
         return MaintenanceHistoryResult(count=len(items), items=items).model_dump(mode="json")
+
+    async def _search_documentation(self, payload: BaseModel) -> dict[str, Any]:
+        args = SearchDocumentationInput.model_validate(payload.model_dump())
+        if self._documents is None:
+            return DocumentationSearchResult(count=0, items=[]).model_dump(mode="json")
+        hits = await self._documents.search(
+            args.query, equipment_id=args.equipment_id, limit=args.limit
+        )
+        items = [
+            DocumentationHit(
+                title=hit.title,
+                source_path=hit.source_path,
+                content=hit.content,
+                score=hit.score,
+                equipment_codes=hit.equipment_codes,
+            )
+            for hit in hits
+        ]
+        return DocumentationSearchResult(count=len(items), items=items).model_dump(mode="json")
+
+    async def _create_work_order(self, payload: BaseModel) -> dict[str, Any]:
+        args = CreateWorkOrderInput.model_validate(payload.model_dump())
+        created = await self._reader.create_work_order(
+            equipment_id=args.equipment_id,
+            title=args.title,
+            description=args.description,
+            priority=args.priority,
+            idempotency_key=args.idempotency_key,
+            source_investigation_id=args.source_investigation_id,
+        )
+        return created.model_dump(mode="json")

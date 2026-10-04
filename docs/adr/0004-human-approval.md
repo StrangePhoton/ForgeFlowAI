@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (implementation starts Milestone 5).
+Accepted (implemented in Milestone 5).
 
 ## Context
 
@@ -10,10 +10,13 @@ Creating or updating work orders and other write actions must not run automatica
 
 ## Decision
 
-Classify risky actions in deterministic policy code (not by asking the model). When approval is required, the LangGraph run interrupts and the checkpoint is stored in PostgreSQL. Resume uses the persisted state. Work-order creation is idempotent so a retry after resume cannot create duplicates.
+Classify risky actions in deterministic policy code (not by asking the model). When approval is required, the LangGraph run interrupts and the checkpoint is stored (MemorySaver in tests, PostgreSQL when `CHECKPOINT_BACKEND=postgres`). Resume uses the persisted state. Work-order creation is keyed by `investigation:{id}:create_work_order` so a retry cannot create duplicates.
+
+`ApprovalGate` is the tool-layer control: `create_work_order` is denied until the graph grants that idempotency key after a human `approve` decision.
 
 ## Consequences
 
-- The API must expose an approval queue and resume endpoints.
-- In-memory graph state is insufficient; checkpointing is a Milestone 5 requirement.
-- Rejection is a recorded outcome, not a silent no-op.
+- The API exposes an approval queue and resume endpoints.
+- In-memory graph state is insufficient for process restart; Compose uses the PostgreSQL checkpointer.
+- Rejection is a recorded `status=rejected` outcome and creates no work order.
+- The HTTP approval index is in-process; checkpoint resume is the durable path.

@@ -1,0 +1,20 @@
+[
+  {
+    "path": "cnc-042-cooling.md",
+    "title": "FX-400 Coolant Loop Service Manual",
+    "equipment_codes": ["CNC-042"],
+    "doc_type": "cooling"
+  },
+  {
+    "path": "pump-ax200-seals.md",
+    "title": "Axial Pump AX200 Mechanical Seal Guide",
+    "equipment_codes": ["PUMP-AX200"],
+    "doc_type": "seals"
+  },
+  {
+    "path": "conveyor-b17-belt.md",
+    "title": "Conveyor B17 Belt Tracking Notes",
+    "equipment_codes": ["CONVEYOR-B17"],
+    "doc_type": "belt"
+  }
+]

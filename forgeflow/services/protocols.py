@@ -14,7 +14,7 @@ from forgeflow.domain.seed.constants import DEFAULT_HISTORY_LIMIT
 
 
 class IndustrialReader(Protocol):
-    """Read-only plant queries. MCP tools wrap this; the agent must not query tables."""
+    """Plant queries used by MCP tools. The agent must not query tables directly."""
 
     async def list_equipment(self) -> list[EquipmentOut]: ...
 
@@ -41,3 +41,14 @@ class IndustrialReader(Protocol):
     async def maintenance_history(self, code: str) -> list[MaintenanceRecordOut]: ...
 
     async def work_orders(self, code: str) -> list[WorkOrderOut]: ...
+
+    async def create_work_order(
+        self,
+        *,
+        equipment_id: str,
+        title: str,
+        description: str,
+        priority: str,
+        idempotency_key: str,
+        source_investigation_id: str | None = None,
+    ) -> WorkOrderOut: ...

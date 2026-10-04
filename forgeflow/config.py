@@ -54,6 +54,9 @@ class Settings(BaseSettings):
         default=15.0, ge=0.1, le=120.0, validation_alias="MCP_TOOL_TIMEOUT_SECONDS"
     )
     investigation_as_of: datetime | None = Field(default=None, validation_alias="FORGEFLOW_AS_OF")
+    checkpoint_backend: Literal["memory", "postgres"] = Field(
+        default="memory", validation_alias="CHECKPOINT_BACKEND"
+    )
 
     @field_validator("log_level")
     @classmethod
@@ -78,6 +81,13 @@ class Settings(BaseSettings):
         """Return a SQLAlchemy asyncpg URL regardless of the configured scheme."""
         if self.database_url.startswith("postgresql://"):
             return self.database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return self.database_url
+
+    @property
+    def psycopg_database_url(self) -> str:
+        """Return a libpq/psycopg URL for the LangGraph PostgreSQL checkpointer."""
+        if self.database_url.startswith("postgresql+asyncpg://"):
+            return self.database_url.replace("postgresql+asyncpg://", "postgresql://", 1)
         return self.database_url
 
 

@@ -13,6 +13,9 @@ from forgeflow.config import get_settings
 from forgeflow.db.base import Base
 from forgeflow.domain.models import (  # noqa: F401
     Alarm,
+    ApprovalRequest,
+    Document,
+    DocumentChunk,
     Equipment,
     MaintenanceRecord,
     SensorReading,

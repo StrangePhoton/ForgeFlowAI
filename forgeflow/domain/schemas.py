@@ -77,3 +77,5 @@ class WorkOrderOut(BaseModel):
     created_at: datetime
     updated_at: datetime
     completed_at: datetime | None
+    idempotency_key: str | None = None
+    source_investigation_id: UUID | None = None

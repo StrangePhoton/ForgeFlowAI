@@ -14,6 +14,6 @@ Use LangGraph with an explicit state graph and typed state. Important control-fl
 
 ## Consequences
 
-- Persistence and interrupts map onto graph checkpoints (PostgreSQL checkpointer in Milestone 5).
+- Persistence and interrupts map onto graph checkpoints (PostgreSQL checkpointer in Milestone 5 when `CHECKPOINT_BACKEND=postgres`).
 - The design is more verbose than a generic tool-calling agent and easier to test and audit.
 - We accept LangGraph as a core dependency rather than writing a custom state machine.

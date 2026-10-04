@@ -19,5 +19,5 @@ An investigation agent reads untrusted manuals, telemetry, and comments, and can
 ## Consequences
 
 - Security tests can assert denials without involving a model.
-- Prompt-injection fixtures belong in `tests/security` once retrieval exists.
+- Prompt-injection fixtures belong in `tests/security` once retrieval exists. Retrieved manuals are cited as FACT text and cannot grant `create_work_order`.
 - Defense in depth is more important than a clever system prompt.

@@ -1,6 +1,6 @@
 # Contributing
 
-ForgeFlow AI is developed in vertical slices. Milestone 3 is the current baseline: keep the repository bootable with `docker compose up`, a passing test suite, MCP tools, and a CNC-042 investigation that produces an evidence-backed report.
+ForgeFlow AI is developed in vertical slices. Milestone 5 is the current baseline: keep the repository bootable with `docker compose up`, a passing test suite, MCP tools, CNC-042 retrieval citations, and a protected work order that is created only after human approval.
 
 ## Development setup
 
@@ -30,7 +30,7 @@ mypy forgeflow apps
 pytest
 ```
 
-Do not add paid LLM calls to the default test suite. External model APIs must remain mockable.
+Do not add paid LLM or embedding API calls to the default test suite. External model APIs must remain mockable. Retrieval uses hashed embeddings.
 
 ## Project conventions
 

@@ -1,8 +1,8 @@
 # ForgeFlow AI
 
-Production-oriented industrial agentic AI platform. An engineer can submit an operational request; the system plans an investigation, gathers equipment telemetry, alarms, and maintenance history through MCP tools, and produces an evidence-backed root-cause report.
+Production-oriented industrial agentic AI platform. An engineer can submit an operational request; the system plans an investigation, gathers equipment telemetry, alarms, maintenance history, and relevant manual sections through MCP tools, then pauses for human approval before creating a work order.
 
-**Current status: Milestone 3 (investigation workflow).** MCP tools and a LangGraph investigation run against the synthetic plant. RAG, human approval, authentication, and the web console are not implemented yet.
+**Current status: Milestone 5 (retrieval + human approval).** RAG over fictional manuals and a LangGraph interrupt/resume path for `create_work_order` are implemented. Authentication and the web console are not.
 
 ## Problem
 
@@ -10,11 +10,13 @@ Industrial investigations mix noisy operational data, technical manuals, and wri
 
 ## What works today
 
-- FastAPI application with versioned health, readiness, equipment history, and investigation endpoints
-- PostgreSQL 16 with pgvector enabled and industrial tables for equipment, telemetry, alarms, maintenance, and work orders
-- Deterministic synthetic seed for five fictional machines, including CNC-042
-- MCP tools `get_equipment`, `get_sensor_history`, `get_alarm_history`, and `get_maintenance_history`
-- LangGraph investigation: request → plan → equipment → telemetry → alarms → maintenance → evidence → report
+- FastAPI application with versioned health, readiness, equipment history, investigation, and approval endpoints
+- PostgreSQL 16 with pgvector, industrial tables, ingested manual chunks, and optional LangGraph checkpoints
+- Deterministic synthetic seed for five fictional machines, including CNC-042, plus fictional manuals
+- MCP tools `get_equipment`, `get_sensor_history`, `get_alarm_history`, `get_maintenance_history`, `search_documentation`, and `create_work_order`
+- LangGraph investigation: request → plan → retrieve operational data and manuals → evidence → report → propose write → interrupt → execute
+- Hashed embeddings (no paid embedding API) stored with pgvector; unit tests search an in-memory index of the same corpus
+- Deterministic approval policy: `create_work_order` is denied until a human approval grants that investigation's idempotency key
 - LLM provider abstraction for OpenAI, Ollama, and an in-process mock (tests never call a paid API)
 - Environment-based configuration
 - JSON structured logging with secret redaction
@@ -23,8 +25,6 @@ Industrial investigations mix noisy operational data, technical manuals, and wri
 
 ## What does not work yet
 
-- RAG / document retrieval
-- Human approval
 - Authentication and RBAC
 - React operations console
 - Evaluation harness
@@ -47,7 +47,7 @@ flowchart LR
     HITL --> User
 ```
 
-Milestone 3 implements the investigation path through MCP tools:
+Milestone 5 implements retrieval and human approval:
 
 ```mermaid
 flowchart LR
@@ -55,9 +55,14 @@ flowchart LR
     API --> Graph[LangGraph investigation]
     Graph --> EqMCP[Equipment MCP]
     Graph --> MaintMCP[Maintenance MCP]
+    Graph --> DocMCP[Documentation MCP]
+    Graph --> Gate[Approval interrupt]
     EqMCP --> Reader[IndustrialQueryService]
     MaintMCP --> Reader
+    DocMCP --> Manuals[Hashed embeddings]
     Reader --> DB[(PostgreSQL)]
+    Manuals --> DB
+    Gate --> Client
 ```
 
 ## Technology stack
@@ -66,9 +71,10 @@ flowchart LR
 | --- | --- |
 | API | Python 3.12+, FastAPI, Pydantic v2 |
 | Data | PostgreSQL 16, pgvector, SQLAlchemy 2, Alembic |
-| Tools | MCP (`mcp` SDK) wrapping industrial read queries |
-| Agent | LangGraph explicit state graph |
+| Tools | MCP (`mcp` SDK) wrapping industrial queries and retrieval |
+| Agent | LangGraph explicit state graph with interrupt + checkpointer |
 | LLM | OpenAI, Ollama, or in-process mock |
+| Embeddings | Deterministic hashed vectors (256-d); no paid embedding API |
 | Packaging | Docker Compose |
 | Quality | pytest, ruff, mypy, GitHub Actions |
 
@@ -95,7 +101,16 @@ curl -X POST http://localhost:8000/api/v1/investigations \
   -d "{\"request\":\"Investigate overheating on CNC-042\"}"
 ```
 
-The investigation endpoint uses `LLM_PROVIDER` from `.env`. The Compose default is Ollama; set `LLM_PROVIDER=mock` to run without a model server. Tests always use the mock provider.
+A CNC-042 investigation returns `status: awaiting_approval` and cites the fictional cooling manual. Approve or reject:
+
+```bash
+curl http://localhost:8000/api/v1/approvals
+curl -X POST http://localhost:8000/api/v1/approvals/<investigation_id>/approve \
+  -H "Content-Type: application/json" \
+  -d "{\"decision\":\"approve\"}"
+```
+
+The investigation endpoint uses `LLM_PROVIDER` from `.env`. The Compose default is Ollama; set `LLM_PROVIDER=mock` to run without a model server. Tests always use the mock provider. Compose sets `CHECKPOINT_BACKEND=postgres`; the default test suite uses in-memory checkpoints.
 
 Interactive API docs: [http://localhost:8000/docs](http://localhost:8000/docs)
 
@@ -110,8 +125,9 @@ CNC-042 (ForgeMach FX-400) has a planted last-30-day pattern:
 - nine `TEMP_HIGH` alarms
 - overdue cooling-system inspection
 - no open work order for cooling
+- a fictional FX-400 coolant-loop manual that describes that failure mode
 
-An investigation for CNC-042 should produce FACT / INFERENCE / RECOMMENDATION findings that cite those signals. Peer assets (PUMP-AX200, CONVEYOR-B17, PRESS-HYD-03, COMPRESSOR-C09) do not share that pattern.
+An investigation for CNC-042 should produce FACT / INFERENCE / RECOMMENDATION findings that cite those signals and the manual, then wait for approval before creating a work order. Peer assets (PUMP-AX200, CONVEYOR-B17, PRESS-HYD-03, COMPRESSOR-C09) do not share that pattern and do not propose a protected write.
 
 ## Local checks (without Docker)
 

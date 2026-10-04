@@ -3,6 +3,7 @@
 from datetime import datetime, timedelta
 from typing import Any, TypeVar
 
+from langgraph.types import interrupt
 from pydantic import BaseModel
 
 from forgeflow.agent.evidence import evaluate_evidence, report_actions
@@ -13,26 +14,41 @@ from forgeflow.agent.models import (
     RequestAnalysis,
 )
 from forgeflow.agent.parsing import extract_equipment_code
+from forgeflow.agent.policies import ApprovalGate, classify_risk, requires_approval
 from forgeflow.agent.prompts import ANALYZE_SYSTEM, PLAN_SYSTEM, REPORT_SYSTEM
 from forgeflow.agent.providers.base import LLMProvider
 from forgeflow.agent.providers.mock import DEFAULT_STEPS
 from forgeflow.agent.state import InvestigationState
-from forgeflow.errors import ForgeFlowError, ProviderError, StructuredOutputError
+from forgeflow.errors import (
+    ForgeFlowError,
+    ProviderError,
+    StructuredOutputError,
+    ToolAuthorizationError,
+)
 from forgeflow.mcp.runtime import McpToolGateway
 from forgeflow.mcp.schemas import (
+    CREATE_WORK_ORDER,
     GET_ALARM_HISTORY,
     GET_EQUIPMENT,
     GET_MAINTENANCE_HISTORY,
     GET_SENSOR_HISTORY,
+    SEARCH_DOCUMENTATION,
 )
 
 TModel = TypeVar("TModel", bound=BaseModel)
 
 
 class InvestigationNodes:
-    def __init__(self, *, tools: McpToolGateway, llm: LLMProvider) -> None:
+    def __init__(
+        self,
+        *,
+        tools: McpToolGateway,
+        llm: LLMProvider,
+        approval_gate: ApprovalGate | None = None,
+    ) -> None:
         self._tools = tools
         self._llm = llm
+        self._gate = approval_gate or ApprovalGate()
 
     async def analyze_request(self, state: InvestigationState) -> dict[str, Any]:
         analysis = await self._structured(
@@ -101,6 +117,21 @@ class InvestigationNodes:
         items = result.get("items")
         return {"maintenance": items if isinstance(items, list) else []}
 
+    async def retrieve_documentation(self, state: InvestigationState) -> dict[str, Any]:
+        code = state.get("equipment_code")
+        if not code or state.get("equipment") is None:
+            return {"documents": []}
+        query = (
+            f"{code} cooling coolant overheating TEMP_HIGH spindle temperature "
+            "cooling system inspection"
+        )
+        result = await self._tools.call(
+            SEARCH_DOCUMENTATION,
+            {"query": query, "equipment_id": code, "limit": 5},
+        )
+        items = result.get("items")
+        return {"documents": items if isinstance(items, list) else []}
+
     async def evaluate_evidence_node(self, state: InvestigationState) -> dict[str, Any]:
         as_of = datetime.fromisoformat(state["as_of"])
         bundle = evaluate_evidence(
@@ -110,6 +141,7 @@ class InvestigationNodes:
             alarms=state.get("alarms") or [],
             maintenance=state.get("maintenance") or [],
             as_of=as_of,
+            documents=state.get("documents") or [],
         )
         return {"evidence": bundle.model_dump(mode="json")}
 
@@ -145,6 +177,61 @@ class InvestigationNodes:
             }
         )
         return {"report": report.model_dump(mode="json")}
+
+    async def propose_action(self, state: InvestigationState) -> dict[str, Any]:
+        evidence = state.get("evidence") or {}
+        code = state.get("equipment_code")
+        if not evidence.get("evidence_sufficient") or not code:
+            return {"proposed_action": None, "run_status": "completed"}
+        investigation_id = state.get("investigation_id") or "unknown"
+        return {
+            "proposed_action": {
+                "tool": CREATE_WORK_ORDER,
+                "equipment_id": code,
+                "title": "Inspect coolant loop and restore flow",
+                "description": str(
+                    evidence.get("likely_cause") or "Follow-up work from the investigation report."
+                ),
+                "priority": "high",
+                "idempotency_key": f"investigation:{investigation_id}:create_work_order",
+                "source_investigation_id": investigation_id,
+            }
+        }
+
+    async def request_approval(self, state: InvestigationState) -> dict[str, Any]:
+        proposal = state.get("proposed_action")
+        if not proposal or not requires_approval(proposal):
+            return {"approval": {"decision": "skipped"}, "run_status": "completed"}
+        payload = interrupt(
+            {
+                "type": "approval_required",
+                "investigation_id": state.get("investigation_id"),
+                "risk": classify_risk(proposal),
+                "proposal": proposal,
+            }
+        )
+        if not isinstance(payload, dict):
+            payload = {"decision": str(payload)}
+        return {"approval": payload}
+
+    async def execute_action(self, state: InvestigationState) -> dict[str, Any]:
+        proposal = state.get("proposed_action")
+        approval = state.get("approval") or {}
+        if not proposal:
+            return {"work_order": None, "run_status": "completed"}
+        decision = str(approval.get("decision") or "")
+        if decision == "reject":
+            return {"work_order": None, "run_status": "rejected"}
+        if decision != "approve":
+            raise ToolAuthorizationError("Protected write requires human approval")
+        args = {key: value for key, value in proposal.items() if key != "tool"}
+        for field in ("title", "description", "priority"):
+            edited = approval.get(field)
+            if isinstance(edited, str) and edited.strip():
+                args[field] = edited.strip()
+        self._gate.grant(str(args["idempotency_key"]))
+        created = await self._tools.call(CREATE_WORK_ORDER, args)
+        return {"work_order": created, "run_status": "completed"}
 
     async def _history(self, state: InvestigationState, tool_name: str) -> list[dict[str, Any]]:
         code = state.get("equipment_code")
@@ -198,3 +285,9 @@ def route_after_equipment(state: InvestigationState) -> str:
     if state.get("equipment") is None:
         return "evaluate_evidence"
     return "retrieve_telemetry"
+
+
+def route_after_proposal(state: InvestigationState) -> str:
+    if state.get("proposed_action") is None:
+        return "end"
+    return "request_approval"

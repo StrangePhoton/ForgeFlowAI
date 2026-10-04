@@ -1,9 +1,10 @@
-"""Read-only industrial plant queries."""
+"""Deterministic data access used by the HTTP API and MCP tool handlers."""
 
 from datetime import UTC, datetime, timedelta
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from forgeflow.domain.models import Alarm, Equipment, MaintenanceRecord, SensorReading, WorkOrder
@@ -93,6 +94,52 @@ class IndustrialQueryService:
         )
         rows = (await self._session.scalars(stmt)).all()
         return [WorkOrderOut.model_validate(row) for row in rows]
+
+    async def create_work_order(
+        self,
+        *,
+        equipment_id: str,
+        title: str,
+        description: str,
+        priority: str,
+        idempotency_key: str,
+        source_investigation_id: str | None = None,
+    ) -> WorkOrderOut:
+        existing = await self._session.scalar(
+            select(WorkOrder).where(WorkOrder.idempotency_key == idempotency_key)
+        )
+        if existing is not None:
+            return WorkOrderOut.model_validate(existing)
+        equipment = await self._require_equipment(equipment_id)
+        now = datetime.now(UTC)
+        investigation_uuid = parse_equipment_id(source_investigation_id or "")
+        row = WorkOrder(
+            id=uuid4(),
+            equipment_id=equipment.id,
+            number=f"WO-{uuid4().hex[:8].upper()}",
+            title=title.strip(),
+            description=description.strip(),
+            status="open",
+            priority=priority.strip() or "high",
+            created_at=now,
+            updated_at=now,
+            completed_at=None,
+            idempotency_key=idempotency_key,
+            source_investigation_id=investigation_uuid,
+        )
+        self._session.add(row)
+        try:
+            await self._session.flush()
+        except IntegrityError:
+            await self._session.rollback()
+            replay = await self._session.scalar(
+                select(WorkOrder).where(WorkOrder.idempotency_key == idempotency_key)
+            )
+            if replay is None:
+                raise
+            return WorkOrderOut.model_validate(replay)
+        await self._session.commit()
+        return WorkOrderOut.model_validate(row)
 
     async def _require_equipment(self, code_or_id: str) -> Equipment:
         normalized = code_or_id.strip()

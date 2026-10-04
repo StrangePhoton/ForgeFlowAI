@@ -1,6 +1,7 @@
 """In-memory industrial reader used by unit tests and local MCP invocations."""
 
 from datetime import datetime, timedelta
+from uuid import UUID, uuid4
 
 from forgeflow.domain.schemas import (
     AlarmOut,
@@ -19,6 +20,7 @@ class InMemoryIndustrialReader:
 
     def __init__(self, snapshot: PlantSnapshot) -> None:
         self._snapshot = snapshot
+        self._created_work_orders: list[WorkOrderOut] = []
 
     async def list_equipment(self) -> list[EquipmentOut]:
         return [_equipment_out(item) for item in self._snapshot.equipment]
@@ -106,8 +108,8 @@ class InMemoryIndustrialReader:
         ]
 
     async def work_orders(self, code: str) -> list[WorkOrderOut]:
-        self._require(code)
-        return [
+        equipment = self._require(code)
+        seeded = [
             WorkOrderOut(
                 id=row.id,
                 equipment_id=row.equipment_id,
@@ -122,6 +124,46 @@ class InMemoryIndustrialReader:
             )
             for row in self._snapshot.work_orders_for(code)
         ]
+        created = [row for row in self._created_work_orders if row.equipment_id == equipment.id]
+        return seeded + created
+
+    async def create_work_order(
+        self,
+        *,
+        equipment_id: str,
+        title: str,
+        description: str,
+        priority: str,
+        idempotency_key: str,
+        source_investigation_id: str | None = None,
+    ) -> WorkOrderOut:
+        for existing in self._created_work_orders:
+            if existing.idempotency_key == idempotency_key:
+                return existing
+        equipment = self._require(equipment_id)
+        investigation_uuid: UUID | None = None
+        if source_investigation_id:
+            try:
+                investigation_uuid = UUID(source_investigation_id)
+            except ValueError:
+                investigation_uuid = None
+        now = DEMO_CLOCK
+        created = WorkOrderOut(
+            id=uuid4(),
+            equipment_id=equipment.id,
+            number=f"WO-{uuid4().hex[:8].upper()}",
+            title=title.strip(),
+            description=description.strip(),
+            status="open",
+            priority=priority.strip() or "high",
+            created_at=now,
+            updated_at=now,
+            completed_at=None,
+            idempotency_key=idempotency_key,
+            source_investigation_id=investigation_uuid,
+        )
+        self._created_work_orders.append(created)
+        return created
 
     def _require(self, code: str) -> EquipmentDraft:
         normalized = code.strip()

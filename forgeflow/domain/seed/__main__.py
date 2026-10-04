@@ -9,6 +9,7 @@ from forgeflow.db.session import Database
 from forgeflow.domain.seed.generate import generate_plant
 from forgeflow.domain.seed.persist import persist_plant
 from forgeflow.observability.logging import configure_logging, get_logger
+from forgeflow.retrieval.ingestion import ingest_manuals
 
 logger = get_logger(__name__)
 
@@ -21,6 +22,7 @@ async def seed_async(*, reset: bool, now: datetime | None) -> None:
     try:
         async with database.session_factory() as session:
             await persist_plant(session, snapshot, reset=reset)
+            await ingest_manuals(session, reset=True)
             await session.commit()
         logger.info(
             "seed_complete",

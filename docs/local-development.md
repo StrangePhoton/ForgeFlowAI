@@ -18,6 +18,7 @@ The API reads:
 - `LLM_MODEL`, `LLM_API_BASE`, `LLM_API_KEY`, `LLM_TEMPERATURE`, `LLM_TIMEOUT_SECONDS`, `LLM_MAX_RETRIES`
 - `FORGEFLOW_AS_OF` — investigation clock for the synthetic plant
 - `MCP_TOOL_TIMEOUT_SECONDS`
+- `CHECKPOINT_BACKEND` — `memory` (tests / host default) or `postgres` (Compose)
 
 Default Compose credentials (`forgeflow` / `forgeflow`) are local-only.
 
@@ -42,6 +43,7 @@ curl http://localhost:8000/api/v1/ready
 docker compose exec api python -m forgeflow.domain.seed --reset
 curl http://localhost:8000/api/v1/equipment/CNC-042
 curl -X POST http://localhost:8000/api/v1/investigations -H "Content-Type: application/json" -d "{\"request\":\"Investigate overheating on CNC-042\"}"
+curl http://localhost:8000/api/v1/approvals
 ```
 
 Expected health payload includes `"status": "healthy"`. Ready returns `"status": "ready"` once Postgres accepts connections.
@@ -79,7 +81,7 @@ pytest
 python -m forgeflow.domain.seed --reset
 ```
 
-`--reset` deletes existing industrial rows, then inserts the synthetic plant.
+`--reset` deletes existing industrial rows, then inserts the synthetic plant and re-ingests fictional manuals into pgvector.
 
 ## Migrations
 

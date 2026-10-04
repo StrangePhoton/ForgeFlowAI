@@ -16,4 +16,5 @@ Use PostgreSQL 16 for all durable state. Enable pgvector in the initial migratio
 
 - Local development and CI can use one database image (`pgvector/pgvector:pg16`).
 - Retrieval can start with metadata-filtered vector search and grow to hybrid search later without a new database product.
+- Milestone 4 stores hashed embeddings in `document_chunks` and searches them with pgvector cosine distance.
 - We do not introduce Redis, OpenSearch, or a dedicated vector DB in Milestone 0.

@@ -16,10 +16,12 @@ from forgeflow.mcp.authz import DenyAllAuthorizer
 from forgeflow.mcp.registry import ToolRegistry
 from forgeflow.mcp.runtime import build_tool_gateway
 from forgeflow.mcp.schemas import (
+    CREATE_WORK_ORDER,
     GET_ALARM_HISTORY,
     GET_EQUIPMENT,
     GET_MAINTENANCE_HISTORY,
     GET_SENSOR_HISTORY,
+    SEARCH_DOCUMENTATION,
 )
 from forgeflow.services.snapshot import InMemoryIndustrialReader
 
@@ -82,10 +84,14 @@ async def test_gateway_lists_required_tools() -> None:
         GET_SENSOR_HISTORY,
         GET_ALARM_HISTORY,
         GET_MAINTENANCE_HISTORY,
+        SEARCH_DOCUMENTATION,
+        CREATE_WORK_ORDER,
     }
     by_name = {item.name: item for item in tools}
     assert by_name[GET_EQUIPMENT].server == "forgeflow-equipment"
     assert by_name[GET_MAINTENANCE_HISTORY].server == "forgeflow-maintenance"
+    assert by_name[SEARCH_DOCUMENTATION].server == "forgeflow-documentation"
+    assert by_name[CREATE_WORK_ORDER].server == "forgeflow-maintenance"
     assert "equipment_id" in by_name[GET_EQUIPMENT].input_schema.get("properties", {})
 
 

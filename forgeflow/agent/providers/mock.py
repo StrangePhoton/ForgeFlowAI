@@ -18,6 +18,7 @@ DEFAULT_STEPS = [
     "retrieve_telemetry",
     "retrieve_alarms",
     "retrieve_maintenance",
+    "retrieve_documentation",
     "evaluate_evidence",
     "generate_report",
 ]

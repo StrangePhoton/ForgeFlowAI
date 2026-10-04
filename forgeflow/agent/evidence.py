@@ -22,6 +22,7 @@ def evaluate_evidence(
     alarms: list[dict[str, Any]],
     maintenance: list[dict[str, Any]],
     as_of: datetime,
+    documents: list[dict[str, Any]] | None = None,
 ) -> EvidenceBundle:
     if equipment is None or not equipment_code:
         return EvidenceBundle(
@@ -132,6 +133,17 @@ def evaluate_evidence(
                 kind="FACT",
                 statement=f"Maintenance is overdue: {', '.join(overdue)}.",
                 source="get_maintenance_history",
+            )
+        )
+    for hit in documents or []:
+        title = str(hit.get("title") or "manual")
+        path = str(hit.get("source_path") or "")
+        snippet = str(hit.get("content") or "").replace("\n", " ")[:240]
+        facts.append(
+            EvidenceItem(
+                kind="FACT",
+                statement=f"Manual '{title}' ({path}): {snippet}",
+                source="search_documentation",
             )
         )
 

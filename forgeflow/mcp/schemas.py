@@ -11,10 +11,13 @@ GET_EQUIPMENT = "get_equipment"
 GET_SENSOR_HISTORY = "get_sensor_history"
 GET_ALARM_HISTORY = "get_alarm_history"
 GET_MAINTENANCE_HISTORY = "get_maintenance_history"
+SEARCH_DOCUMENTATION = "search_documentation"
+CREATE_WORK_ORDER = "create_work_order"
 
 EQUIPMENT_TOOLS = (GET_EQUIPMENT, GET_SENSOR_HISTORY, GET_ALARM_HISTORY)
-MAINTENANCE_TOOLS = (GET_MAINTENANCE_HISTORY,)
-ALL_TOOLS = EQUIPMENT_TOOLS + MAINTENANCE_TOOLS
+MAINTENANCE_TOOLS = (GET_MAINTENANCE_HISTORY, CREATE_WORK_ORDER)
+DOCUMENTATION_TOOLS = (SEARCH_DOCUMENTATION,)
+ALL_TOOLS = EQUIPMENT_TOOLS + MAINTENANCE_TOOLS + DOCUMENTATION_TOOLS
 
 
 class EquipmentIdInput(BaseModel):
@@ -41,6 +44,34 @@ class AlarmHistoryResult(BaseModel):
 class MaintenanceHistoryResult(BaseModel):
     count: int
     items: list[MaintenanceRecordOut]
+
+
+class SearchDocumentationInput(BaseModel):
+    query: str = Field(min_length=1, max_length=2000)
+    equipment_id: str | None = None
+    limit: int = Field(default=5, ge=1, le=20)
+
+
+class DocumentationHit(BaseModel):
+    title: str
+    source_path: str
+    content: str
+    score: float
+    equipment_codes: list[str] = Field(default_factory=list)
+
+
+class DocumentationSearchResult(BaseModel):
+    count: int
+    items: list[DocumentationHit]
+
+
+class CreateWorkOrderInput(BaseModel):
+    equipment_id: str = Field(min_length=1, max_length=64)
+    title: str = Field(min_length=1, max_length=256)
+    description: str = Field(min_length=1, max_length=4000)
+    priority: str = Field(default="high", min_length=1, max_length=16)
+    idempotency_key: str = Field(min_length=1, max_length=128)
+    source_investigation_id: str | None = None
 
 
 class ToolInfo(BaseModel):

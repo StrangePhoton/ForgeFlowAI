@@ -6,7 +6,18 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, Float, ForeignKey, Index, String, Text, UniqueConstraint, Uuid
+from pgvector.sqlalchemy import Vector
+from sqlalchemy import (
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    Uuid,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -103,12 +114,13 @@ class MaintenanceRecord(Base):
 
 
 class WorkOrder(Base):
-    """Maintenance work order. Writes are not exposed in Milestone 1."""
+    """Maintenance work order. Protected creates require human approval."""
 
     __tablename__ = "work_orders"
     __table_args__ = (
         Index("ix_work_orders_number", "number", unique=True),
         Index("ix_work_orders_equipment_created", "equipment_id", "created_at"),
+        Index("ix_work_orders_idempotency", "idempotency_key", unique=True),
     )
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
@@ -123,5 +135,62 @@ class WorkOrder(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    idempotency_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    source_investigation_id: Mapped[UUID | None] = mapped_column(Uuid, nullable=True)
 
     equipment: Mapped[Equipment] = relationship(back_populates="work_orders")
+
+
+class Document(Base):
+    """Ingested technical document (fictional manuals in the demo)."""
+
+    __tablename__ = "documents"
+    __table_args__ = (Index("ix_documents_source_path", "source_path", unique=True),)
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    title: Mapped[str] = mapped_column(String(256), nullable=False)
+    source_path: Mapped[str] = mapped_column(String(512), nullable=False)
+    doc_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    equipment_codes: Mapped[list[Any]] = mapped_column(JSONB, nullable=False, default=list)
+    ingested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    chunks: Mapped[list[DocumentChunk]] = relationship(back_populates="document")
+
+
+class DocumentChunk(Base):
+    """Embedded chunk used for retrieval."""
+
+    __tablename__ = "document_chunks"
+    __table_args__ = (
+        UniqueConstraint("document_id", "chunk_index", name="uq_document_chunks_doc_index"),
+        Index("ix_document_chunks_document", "document_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    document_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False
+    )
+    chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    source_path: Mapped[str] = mapped_column(String(512), nullable=False)
+    chunk_metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    embedding: Mapped[list[float]] = mapped_column(Vector(256), nullable=False)
+
+    document: Mapped[Document] = relationship(back_populates="chunks")
+
+
+class ApprovalRequest(Base):
+    """Human-approval queue row. Graph checkpoints remain the resume source of truth."""
+
+    __tablename__ = "approval_requests"
+    __table_args__ = (Index("ix_approval_requests_status", "status"),)
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    investigation_id: Mapped[UUID] = mapped_column(Uuid, nullable=False)
+    thread_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    tool_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    proposal: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    resolution: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)

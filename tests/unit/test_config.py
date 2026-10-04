@@ -11,6 +11,8 @@ def test_async_database_url_adds_asyncpg_driver() -> None:
     )
     assert settings.async_database_url.startswith("postgresql+asyncpg://")
     assert "secret" in settings.database_url
+    assert settings.psycopg_database_url.startswith("postgresql://")
+    assert "+asyncpg" not in settings.psycopg_database_url
 
 
 def test_async_database_url_keeps_existing_driver() -> None:

@@ -7,6 +7,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
 
+from mcp import ClientSession
 from mcp.client._memory import InMemoryTransport
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError, UnexpectedToolError
@@ -20,16 +21,19 @@ from forgeflow.errors import (
     ToolValidationError,
 )
 from forgeflow.mcp.authz import ToolAuthorizer
+from forgeflow.mcp.documentation import create_documentation_server
 from forgeflow.mcp.equipment import create_equipment_server
 from forgeflow.mcp.maintenance import create_maintenance_server
 from forgeflow.mcp.registry import ToolRegistry
 from forgeflow.mcp.schemas import (
+    DOCUMENTATION_TOOLS,
     EQUIPMENT_TOOLS,
     MAINTENANCE_TOOLS,
     ToolInfo,
 )
+from forgeflow.retrieval.corpus import manuals_index
+from forgeflow.retrieval.search.hits import DocumentSearcher
 from forgeflow.services.protocols import IndustrialReader
-from mcp import ClientSession
 
 _ERROR_TYPES: dict[str, type[ForgeFlowError]] = {
     "not_found": NotFoundError,
@@ -46,9 +50,11 @@ class McpToolGateway:
         self,
         equipment: MCPServer[Any],
         maintenance: MCPServer[Any],
+        documentation: MCPServer[Any],
     ) -> None:
         self._equipment = equipment
         self._maintenance = maintenance
+        self._documentation = documentation
 
     @property
     def equipment_server(self) -> MCPServer[Any]:
@@ -58,9 +64,13 @@ class McpToolGateway:
     def maintenance_server(self) -> MCPServer[Any]:
         return self._maintenance
 
+    @property
+    def documentation_server(self) -> MCPServer[Any]:
+        return self._documentation
+
     async def list_tools(self) -> list[ToolInfo]:
         listed: list[ToolInfo] = []
-        for server in (self._equipment, self._maintenance):
+        for server in (self._equipment, self._maintenance, self._documentation):
             for tool in await server.list_tools():
                 listed.append(
                     ToolInfo(
@@ -96,19 +106,29 @@ class McpToolGateway:
             return self._equipment
         if name in MAINTENANCE_TOOLS:
             return self._maintenance
+        if name in DOCUMENTATION_TOOLS:
+            return self._documentation
         raise ForgeFlowError(f"Unknown tool {name}", code="unknown_tool", status_code=404)
 
 
 def build_tool_gateway(
     reader: IndustrialReader,
     *,
+    documents: DocumentSearcher | None = None,
     timeout_seconds: float = 15.0,
     authorizer: ToolAuthorizer | None = None,
 ) -> McpToolGateway:
-    registry = ToolRegistry(reader, timeout_seconds=timeout_seconds, authorizer=authorizer)
+    searcher = documents if documents is not None else manuals_index()
+    registry = ToolRegistry(
+        reader,
+        documents=searcher,
+        timeout_seconds=timeout_seconds,
+        authorizer=authorizer,
+    )
     return McpToolGateway(
         equipment=create_equipment_server(registry),
         maintenance=create_maintenance_server(registry),
+        documentation=create_documentation_server(registry),
     )
 
 

@@ -1,8 +1,10 @@
 """Structured agent outputs. Critical model results are Pydantic models, not free text."""
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
+
+from forgeflow.domain.schemas import WorkOrderOut
 
 EvidenceKind = Literal["FACT", "INFERENCE", "RECOMMENDATION"]
 Confidence = Literal["high", "medium", "low", "insufficient"]
@@ -58,9 +60,28 @@ class InvestigationRequest(BaseModel):
     request: str = Field(min_length=1, max_length=4000)
 
 
+class PendingApproval(BaseModel):
+    investigation_id: str
+    tool_name: str
+    risk: str
+    proposal: dict[str, Any]
+
+
+class ApprovalDecision(BaseModel):
+    decision: Literal["approve", "reject"]
+    reason: str | None = None
+    title: str | None = None
+    description: str | None = None
+    priority: str | None = None
+
+
 class InvestigationResult(BaseModel):
     request: str
     equipment_code: str | None
     plan: InvestigationPlan
     evidence: EvidenceBundle
     report: InvestigationReport
+    status: Literal["completed", "awaiting_approval", "rejected"] = "completed"
+    investigation_id: str | None = None
+    approval: PendingApproval | None = None
+    work_order: WorkOrderOut | None = None

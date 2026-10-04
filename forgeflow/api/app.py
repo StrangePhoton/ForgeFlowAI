@@ -6,6 +6,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from forgeflow import __version__
+from forgeflow.agent.checkpoints import open_checkpointer
+from forgeflow.agent.policies import ApprovalGate
 from forgeflow.agent.providers.factory import create_llm_provider
 from forgeflow.api.errors import register_exception_handlers
 from forgeflow.api.middleware import RequestIdMiddleware
@@ -15,6 +17,7 @@ from forgeflow.api.routes.investigations import router as investigations_router
 from forgeflow.config import get_settings
 from forgeflow.db.session import Database
 from forgeflow.observability.logging import configure_logging, get_logger
+from forgeflow.retrieval.corpus import manuals_index
 
 logger = get_logger(__name__)
 
@@ -26,15 +29,20 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.settings = settings
     app.state.database = database
     app.state.llm_provider = create_llm_provider(settings)
-    logger.info(
-        "api_started",
-        extra={"forgeflow": {"version": __version__, "environment": settings.environment}},
-    )
-    try:
-        yield
-    finally:
-        await database.dispose()
-        logger.info("api_stopped")
+    app.state.approval_gate = ApprovalGate()
+    app.state.document_searcher = manuals_index()
+    app.state.investigations = {}
+    async with open_checkpointer(settings) as checkpointer:
+        app.state.checkpointer = checkpointer
+        logger.info(
+            "api_started",
+            extra={"forgeflow": {"version": __version__, "environment": settings.environment}},
+        )
+        try:
+            yield
+        finally:
+            await database.dispose()
+            logger.info("api_stopped")
 
 
 def create_app() -> FastAPI:
