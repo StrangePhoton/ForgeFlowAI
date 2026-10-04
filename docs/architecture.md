@@ -2,12 +2,16 @@
 
 ForgeFlow AI is a modular monolith. One Python package (`forgeflow`) owns domain logic, agent orchestration, retrieval, and security. Process entrypoints live under `apps/`. MCP servers may run as separate processes later, but they share the same package and database rather than becoming a microservice mesh.
 
-## Milestone 1 scope
+## Milestone 3 scope
 
 Implemented now:
 
 - FastAPI application factory with `/api/v1/health` and `/api/v1/ready`
 - Equipment registry and history APIs under `/api/v1/equipment`
+- Investigation API `POST /api/v1/investigations`
+- MCP equipment and maintenance servers wrapping `IndustrialQueryService`
+- LangGraph investigation graph with explicit nodes
+- LLM provider adapters: OpenAI, Ollama, in-process mock
 - Pydantic Settings loaded from the environment
 - Async SQLAlchemy engine and session factory
 - Alembic migrations, including `CREATE EXTENSION vector` and industrial tables
@@ -15,7 +19,7 @@ Implemented now:
 - Structured JSON logging and request IDs
 - Docker Compose services: `postgres`, `api`
 
-Not implemented: agent graph, MCP, RAG, authn/z, UI, evals, OpenTelemetry.
+Not implemented: RAG / documentation MCP, human approval, authn/z, UI, evals, OpenTelemetry.
 
 ## Target runtime
 
@@ -87,7 +91,7 @@ flowchart TB
 
 ## HTTP API
 
-Versioned under `/api/v1`. Milestone 1 exposes:
+Versioned under `/api/v1`. Milestone 3 exposes:
 
 | Method | Path | Meaning |
 | --- | --- | --- |
@@ -99,10 +103,28 @@ Versioned under `/api/v1`. Milestone 1 exposes:
 | GET | `/api/v1/equipment/{code}/alarm-history` | Alarms; default last 30 days |
 | GET | `/api/v1/equipment/{code}/maintenance-history` | Maintenance records |
 | GET | `/api/v1/equipment/{code}/work-orders` | Work orders for the asset |
+| POST | `/api/v1/investigations` | Run the LangGraph investigation |
 | GET | `/docs` | OpenAPI Swagger UI |
 | GET | `/openapi.json` | OpenAPI schema |
 
-Errors use `{ "error": { "code", "message", "details?" } }`.
+Errors use `{ "error": { "code", "message", "details?" } }`. An investigation that cannot support a cause still returns HTTP 200 with `report.evidence_sufficient = false`.
+
+## MCP tools
+
+Equipment and maintenance capabilities are MCP tools, not ad-hoc SQL from the graph. The API process hosts in-process MCP servers and invokes them through `McpToolGateway`. Tests can also connect with the MCP `ClientSession` over in-memory streams.
+
+| Tool | Server | Data |
+| --- | --- | --- |
+| `get_equipment` | `forgeflow-equipment` | One asset by code or UUID |
+| `get_sensor_history` | `forgeflow-equipment` | Telemetry window |
+| `get_alarm_history` | `forgeflow-equipment` | Alarm window |
+| `get_maintenance_history` | `forgeflow-maintenance` | Maintenance records |
+
+Each call is schema-validated, timed, logged, and passed through an authorization hook (allow-all until Milestone 6).
+
+## Investigation graph
+
+Linear LangGraph nodes: `analyze_request` → `create_plan` → `resolve_equipment` → `retrieve_telemetry` → `retrieve_alarms` → `retrieve_maintenance` → `evaluate_evidence` → `generate_report`. If equipment cannot be resolved, retrieval is skipped. Operational facts are computed in code; the model fills structured plan/analysis fields and report prose.
 
 ## Persistence
 
@@ -112,6 +134,6 @@ Synthetic catalogs live in `sample_data/`. Hourly telemetry is generated at seed
 
 ## Configuration
 
-Settings are loaded by `pydantic-settings`. `DATABASE_URL` may be `postgresql://` or `postgresql+asyncpg://`; the application normalizes to asyncpg. LLM provider fields are accepted now and unused until Milestone 3, so provider configuration does not scatter later.
+Settings are loaded by `pydantic-settings`. `DATABASE_URL` may be `postgresql://` or `postgresql+asyncpg://`; the application normalizes to asyncpg. `LLM_PROVIDER` is `openai`, `ollama`, or `mock`. `FORGEFLOW_AS_OF` pins the investigation clock to the synthetic plant (default in `.env.example`).
 
 See [local-development.md](local-development.md) and [adr/](adr/).

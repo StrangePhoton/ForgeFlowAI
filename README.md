@@ -1,8 +1,8 @@
 # ForgeFlow AI
 
-Production-oriented industrial agentic AI platform. An engineer can submit an operational request; the system plans an investigation, gathers equipment telemetry, alarms, maintenance history, and technical documentation, produces an evidence-backed root-cause report, and pauses before high-impact actions for human approval.
+Production-oriented industrial agentic AI platform. An engineer can submit an operational request; the system plans an investigation, gathers equipment telemetry, alarms, and maintenance history through MCP tools, and produces an evidence-backed root-cause report.
 
-**Current status: Milestone 1 (industrial domain).** The API can read a synthetic plant, including the CNC-042 overheating scenario. The agent, MCP tools, RAG pipeline, authentication, and web console are not implemented yet.
+**Current status: Milestone 3 (investigation workflow).** MCP tools and a LangGraph investigation run against the synthetic plant. RAG, human approval, authentication, and the web console are not implemented yet.
 
 ## Problem
 
@@ -10,18 +10,19 @@ Industrial investigations mix noisy operational data, technical manuals, and wri
 
 ## What works today
 
-- FastAPI application with versioned health, readiness, and equipment history endpoints
+- FastAPI application with versioned health, readiness, equipment history, and investigation endpoints
 - PostgreSQL 16 with pgvector enabled and industrial tables for equipment, telemetry, alarms, maintenance, and work orders
 - Deterministic synthetic seed for five fictional machines, including CNC-042
-- Environment-based configuration (including unused LLM provider settings reserved for Milestone 3)
+- MCP tools `get_equipment`, `get_sensor_history`, `get_alarm_history`, and `get_maintenance_history`
+- LangGraph investigation: request → plan → equipment → telemetry → alarms → maintenance → evidence → report
+- LLM provider abstraction for OpenAI, Ollama, and an in-process mock (tests never call a paid API)
+- Environment-based configuration
 - JSON structured logging with secret redaction
 - Docker Compose for `postgres` and `api`
 - pytest, ruff, mypy, and a GitHub Actions workflow
 
 ## What does not work yet
 
-- LangGraph investigation workflow
-- MCP tool servers
 - RAG / document retrieval
 - Human approval
 - Authentication and RBAC
@@ -46,14 +47,17 @@ flowchart LR
     HITL --> User
 ```
 
-Milestone 1 implements the operational data plane the later agent will read through tools:
+Milestone 3 implements the investigation path through MCP tools:
 
 ```mermaid
 flowchart LR
     Client[HTTP client] --> API[FastAPI /api/v1]
-    API --> Health["/health /ready"]
-    API --> Equip["/equipment CNC-042 history"]
-    Equip --> DB[(PostgreSQL)]
+    API --> Graph[LangGraph investigation]
+    Graph --> EqMCP[Equipment MCP]
+    Graph --> MaintMCP[Maintenance MCP]
+    EqMCP --> Reader[IndustrialQueryService]
+    MaintMCP --> Reader
+    Reader --> DB[(PostgreSQL)]
 ```
 
 ## Technology stack
@@ -62,6 +66,9 @@ flowchart LR
 | --- | --- |
 | API | Python 3.12+, FastAPI, Pydantic v2 |
 | Data | PostgreSQL 16, pgvector, SQLAlchemy 2, Alembic |
+| Tools | MCP (`mcp` SDK) wrapping industrial read queries |
+| Agent | LangGraph explicit state graph |
+| LLM | OpenAI, Ollama, or in-process mock |
 | Packaging | Docker Compose |
 | Quality | pytest, ruff, mypy, GitHub Actions |
 
@@ -83,7 +90,12 @@ Then:
 curl http://localhost:8000/api/v1/health
 curl http://localhost:8000/api/v1/ready
 curl http://localhost:8000/api/v1/equipment/CNC-042
+curl -X POST http://localhost:8000/api/v1/investigations \
+  -H "Content-Type: application/json" \
+  -d "{\"request\":\"Investigate overheating on CNC-042\"}"
 ```
+
+The investigation endpoint uses `LLM_PROVIDER` from `.env`. The Compose default is Ollama; set `LLM_PROVIDER=mock` to run without a model server. Tests always use the mock provider.
 
 Interactive API docs: [http://localhost:8000/docs](http://localhost:8000/docs)
 
@@ -99,7 +111,7 @@ CNC-042 (ForgeMach FX-400) has a planted last-30-day pattern:
 - overdue cooling-system inspection
 - no open work order for cooling
 
-Peer assets (PUMP-AX200, CONVEYOR-B17, PRESS-HYD-03, COMPRESSOR-C09) do not share that pattern.
+An investigation for CNC-042 should produce FACT / INFERENCE / RECOMMENDATION findings that cite those signals. Peer assets (PUMP-AX200, CONVEYOR-B17, PRESS-HYD-03, COMPRESSOR-C09) do not share that pattern.
 
 ## Local checks (without Docker)
 

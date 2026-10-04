@@ -14,7 +14,10 @@ The API reads:
 
 - `DATABASE_URL` — SQLAlchemy URL (asyncpg driver added automatically when missing)
 - `FORGEFLOW_ENVIRONMENT`, `FORGEFLOW_LOG_LEVEL`, `FORGEFLOW_LOG_JSON`, `FORGEFLOW_API_PREFIX`
-- `LLM_*` — reserved for Milestone 3; changing them has no runtime effect yet
+- `LLM_PROVIDER` — `openai`, `ollama`, or `mock`
+- `LLM_MODEL`, `LLM_API_BASE`, `LLM_API_KEY`, `LLM_TEMPERATURE`, `LLM_TIMEOUT_SECONDS`, `LLM_MAX_RETRIES`
+- `FORGEFLOW_AS_OF` — investigation clock for the synthetic plant
+- `MCP_TOOL_TIMEOUT_SECONDS`
 
 Default Compose credentials (`forgeflow` / `forgeflow`) are local-only.
 
@@ -38,6 +41,7 @@ curl http://localhost:8000/api/v1/health
 curl http://localhost:8000/api/v1/ready
 docker compose exec api python -m forgeflow.domain.seed --reset
 curl http://localhost:8000/api/v1/equipment/CNC-042
+curl -X POST http://localhost:8000/api/v1/investigations -H "Content-Type: application/json" -d "{\"request\":\"Investigate overheating on CNC-042\"}"
 ```
 
 Expected health payload includes `"status": "healthy"`. Ready returns `"status": "ready"` once Postgres accepts connections.
@@ -86,6 +90,6 @@ alembic revision -m "describe the change"
 
 Do not put credentials in `alembic.ini`. The env script reads `DATABASE_URL` through application settings.
 
-## Frontend, Ollama, Prometheus, Grafana
+## Frontend, Prometheus, Grafana
 
-Not part of Milestone 1. Compose does not start those services yet.
+Ollama is optional. Investigations work with `LLM_PROVIDER=mock` without a model server. Compose does not start frontend, Prometheus, or Grafana yet.

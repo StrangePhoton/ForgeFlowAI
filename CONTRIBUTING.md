@@ -1,6 +1,6 @@
 # Contributing
 
-ForgeFlow AI is developed in vertical slices. Milestone 1 is the current baseline: keep the repository bootable with `docker compose up`, a passing test suite, and a seedable CNC-042 plant.
+ForgeFlow AI is developed in vertical slices. Milestone 3 is the current baseline: keep the repository bootable with `docker compose up`, a passing test suite, MCP tools, and a CNC-042 investigation that produces an evidence-backed report.
 
 ## Development setup
 

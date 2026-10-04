@@ -13,6 +13,8 @@ def test_environment(monkeypatch: pytest.MonkeyPatch) -> Generator[None, None, N
     monkeypatch.setenv("FORGEFLOW_ENVIRONMENT", "test")
     monkeypatch.setenv("FORGEFLOW_LOG_JSON", "true")
     monkeypatch.setenv("FORGEFLOW_LOG_LEVEL", "INFO")
+    monkeypatch.setenv("LLM_PROVIDER", "mock")
+    monkeypatch.setenv("FORGEFLOW_AS_OF", "2026-09-03T12:00:00+00:00")
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

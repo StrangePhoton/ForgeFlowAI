@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (implementation starts Milestone 3; configuration keys exist in Milestone 0).
+Accepted (implemented in Milestone 3; configuration keys exist since Milestone 0).
 
 ## Context
 

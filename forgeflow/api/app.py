@@ -6,10 +6,12 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from forgeflow import __version__
+from forgeflow.agent.providers.factory import create_llm_provider
 from forgeflow.api.errors import register_exception_handlers
 from forgeflow.api.middleware import RequestIdMiddleware
 from forgeflow.api.routes.equipment import router as equipment_router
 from forgeflow.api.routes.health import router as health_router
+from forgeflow.api.routes.investigations import router as investigations_router
 from forgeflow.config import get_settings
 from forgeflow.db.session import Database
 from forgeflow.observability.logging import configure_logging, get_logger
@@ -23,6 +25,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     database = Database(settings)
     app.state.settings = settings
     app.state.database = database
+    app.state.llm_provider = create_llm_provider(settings)
     logger.info(
         "api_started",
         extra={"forgeflow": {"version": __version__, "environment": settings.environment}},
@@ -51,4 +54,5 @@ def create_app() -> FastAPI:
     register_exception_handlers(application)
     application.include_router(health_router, prefix=settings.api_prefix)
     application.include_router(equipment_router, prefix=settings.api_prefix)
+    application.include_router(investigations_router, prefix=settings.api_prefix)
     return application

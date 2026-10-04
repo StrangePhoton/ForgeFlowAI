@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (implementation starts Milestone 2).
+Accepted (implemented in Milestone 2).
 
 ## Context
 

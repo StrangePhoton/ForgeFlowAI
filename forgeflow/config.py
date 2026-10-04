@@ -1,5 +1,6 @@
 """Application configuration loaded from environment variables."""
 
+from datetime import datetime
 from functools import lru_cache
 from typing import Literal
 
@@ -11,8 +12,8 @@ class Settings(BaseSettings):
     """Runtime settings for the API process.
 
     Secrets belong in the environment (or a local `.env` file that is not committed).
-    Provider-specific LLM fields are accepted in Milestone 0 so later agent work
-    does not scatter configuration, but they are unused until Milestone 3.
+    Provider-specific LLM fields select OpenAI, Ollama, or the in-process mock.
+    Azure OpenAI can reuse the OpenAI adapter with a different base URL later.
     """
 
     model_config = SettingsConfigDict(
@@ -39,7 +40,7 @@ class Settings(BaseSettings):
     database_ping_timeout_seconds: float = Field(default=3.0, ge=0.5, le=30.0)
     database_echo: bool = False
 
-    llm_provider: Literal["openai", "ollama"] = Field(
+    llm_provider: Literal["openai", "ollama", "mock"] = Field(
         default="ollama", validation_alias="LLM_PROVIDER"
     )
     llm_model: str = Field(default="llama3.1", validation_alias="LLM_MODEL")
@@ -48,6 +49,11 @@ class Settings(BaseSettings):
     llm_temperature: float = Field(default=0.0, ge=0.0, le=2.0, validation_alias="LLM_TEMPERATURE")
     llm_timeout_seconds: float = Field(default=60.0, ge=1.0, validation_alias="LLM_TIMEOUT_SECONDS")
     llm_max_retries: int = Field(default=3, ge=0, le=8, validation_alias="LLM_MAX_RETRIES")
+
+    mcp_tool_timeout_seconds: float = Field(
+        default=15.0, ge=0.1, le=120.0, validation_alias="MCP_TOOL_TIMEOUT_SECONDS"
+    )
+    investigation_as_of: datetime | None = Field(default=None, validation_alias="FORGEFLOW_AS_OF")
 
     @field_validator("log_level")
     @classmethod

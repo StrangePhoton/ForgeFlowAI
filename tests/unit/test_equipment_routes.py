@@ -1,157 +1,19 @@
 """HTTP equipment routes with an in-memory fake service."""
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from fastapi.testclient import TestClient
 from forgeflow.api.deps import get_industrial_service
-from forgeflow.domain.schemas import (
-    AlarmOut,
-    EquipmentOut,
-    MaintenanceRecordOut,
-    SensorReadingOut,
-    WorkOrderOut,
-)
 from forgeflow.domain.seed.constants import DEMO_CLOCK
-from forgeflow.domain.seed.generate import EquipmentDraft, PlantSnapshot, generate_plant
-from forgeflow.errors import NotFoundError
+from forgeflow.domain.seed.generate import PlantSnapshot, generate_plant
+from forgeflow.services.snapshot import InMemoryIndustrialReader
 
 SEED_NOW = DEMO_CLOCK
 
 
-class SnapshotQueryService:
-    """Stand-in for IndustrialQueryService that never touches PostgreSQL."""
-
-    def __init__(self, snapshot: PlantSnapshot) -> None:
-        self._snapshot = snapshot
-
-    async def list_equipment(self) -> list[EquipmentOut]:
-        return [_equipment_out(item) for item in self._snapshot.equipment]
-
-    async def get_equipment(self, code: str) -> EquipmentOut:
-        return _equipment_out(self._require(code))
-
-    async def sensor_history(
-        self,
-        code: str,
-        *,
-        start: datetime | None = None,
-        end: datetime | None = None,
-        limit: int = 2000,
-    ) -> list[SensorReadingOut]:
-        self._require(code)
-        window_start = start or SEED_NOW - timedelta(days=30)
-        window_end = end or SEED_NOW
-        rows = [
-            row
-            for row in self._snapshot.readings_for(code)
-            if window_start <= row.timestamp <= window_end
-        ][:limit]
-        return [
-            SensorReadingOut(
-                id=row.id,
-                equipment_id=row.equipment_id,
-                timestamp=row.timestamp,
-                temperature=row.temperature,
-                vibration=row.vibration,
-                pressure=row.pressure,
-                rpm=row.rpm,
-                power_consumption=row.power_consumption,
-                coolant_flow=row.coolant_flow,
-                status=row.status,
-            )
-            for row in rows
-        ]
-
-    async def alarm_history(
-        self,
-        code: str,
-        *,
-        start: datetime | None = None,
-        end: datetime | None = None,
-        limit: int = 2000,
-    ) -> list[AlarmOut]:
-        self._require(code)
-        window_start = start or SEED_NOW - timedelta(days=30)
-        window_end = end or SEED_NOW
-        rows = [
-            row
-            for row in self._snapshot.alarms_for(code)
-            if window_start <= row.timestamp <= window_end
-        ][:limit]
-        return [
-            AlarmOut(
-                id=row.id,
-                equipment_id=row.equipment_id,
-                timestamp=row.timestamp,
-                code=row.code,
-                severity=row.severity,
-                message=row.message,
-                acknowledged_at=row.acknowledged_at,
-                cleared_at=row.cleared_at,
-            )
-            for row in rows
-        ]
-
-    async def maintenance_history(self, code: str) -> list[MaintenanceRecordOut]:
-        self._require(code)
-        return [
-            MaintenanceRecordOut(
-                id=row.id,
-                equipment_id=row.equipment_id,
-                performed_at=row.performed_at,
-                maintenance_type=row.maintenance_type,
-                title=row.title,
-                description=row.description,
-                technician=row.technician,
-                result=row.result,
-                next_due_at=row.next_due_at,
-            )
-            for row in self._snapshot.maintenance_for(code)
-        ]
-
-    async def work_orders(self, code: str) -> list[WorkOrderOut]:
-        self._require(code)
-        return [
-            WorkOrderOut(
-                id=row.id,
-                equipment_id=row.equipment_id,
-                number=row.number,
-                title=row.title,
-                description=row.description,
-                status=row.status,
-                priority=row.priority,
-                created_at=row.created_at,
-                updated_at=row.updated_at,
-                completed_at=row.completed_at,
-            )
-            for row in self._snapshot.work_orders_for(code)
-        ]
-
-    def _require(self, code: str) -> EquipmentDraft:
-        try:
-            return self._snapshot.equipment_by_code(code)
-        except KeyError as exc:
-            raise NotFoundError(f"Equipment {code} was not found") from exc
-
-
-def _equipment_out(item: EquipmentDraft) -> EquipmentOut:
-    return EquipmentOut(
-        id=item.id,
-        code=item.code,
-        name=item.name,
-        equipment_type=item.equipment_type,
-        model=item.model,
-        manufacturer=item.manufacturer,
-        location=item.location,
-        status=item.status,
-        installed_at=item.installed_at,
-        attributes=item.attributes,
-    )
-
-
 def _install_fake(client: TestClient) -> PlantSnapshot:
     snapshot = generate_plant(now=SEED_NOW)
-    fake = SnapshotQueryService(snapshot)
+    fake = InMemoryIndustrialReader(snapshot)
     client.app.dependency_overrides[get_industrial_service] = lambda: fake
     return snapshot
 

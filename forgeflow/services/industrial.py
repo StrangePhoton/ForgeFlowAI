@@ -19,7 +19,7 @@ from forgeflow.errors import ForgeFlowError, NotFoundError
 
 
 class IndustrialQueryService:
-    """Deterministic data access used by the HTTP API (and later by MCP tools)."""
+    """Deterministic data access used by the HTTP API and MCP tool handlers."""
 
     def __init__(self, session: AsyncSession) -> None:
         self._session = session

@@ -26,6 +26,8 @@ jobs:
     env:
       DATABASE_URL: postgresql+asyncpg://forgeflow:forgeflow@localhost:5432/forgeflow
       FORGEFLOW_ENVIRONMENT: test
+      LLM_PROVIDER: mock
+      FORGEFLOW_AS_OF: "2026-09-03T12:00:00+00:00"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
