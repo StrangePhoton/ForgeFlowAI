@@ -28,9 +28,10 @@ from forgeflow.errors import NotFoundError, ToolAuthorizationError
 from forgeflow.mcp.runtime import build_tool_gateway
 from forgeflow.observability.logging import get_request_id
 from forgeflow.retrieval.search.hits import DocumentSearcher
-from forgeflow.security.audit import AuditLog
+from forgeflow.security.audit import AuditLog, PostgresAuditLog
 from forgeflow.security.principal import Principal
 from forgeflow.security.tool_authz import CompositeAuthorizer, RoleToolAuthorizer
+from forgeflow.services.investigations import InvestigationStore, MemoryInvestigationStore
 
 router = APIRouter(tags=["investigations"])
 
@@ -46,8 +47,8 @@ async def create_investigation(
 ) -> InvestigationResult:
     runner = _runner(request, service, llm, principal)
     result = await runner.run(body.request)
-    _store_result(request, result)
-    audit.record(
+    await _store(request).put(result)
+    await audit.record(
         "investigation_started",
         username=principal.username,
         role=principal.role,
@@ -59,7 +60,7 @@ async def create_investigation(
         details={"status": result.status},
     )
     if result.status == "awaiting_approval":
-        audit.record(
+        await audit.record(
             "approval_requested",
             username=principal.username,
             role=principal.role,
@@ -76,7 +77,7 @@ async def list_investigations(
     request: Request,
     _principal: NeedInvestigationRead,
 ) -> list[InvestigationResult]:
-    return list(_results(request).values())
+    return await _store(request).list_results()
 
 
 @router.get("/investigations/{investigation_id}", response_model=InvestigationResult)
@@ -85,7 +86,7 @@ async def get_investigation(
     request: Request,
     _principal: NeedInvestigationRead,
 ) -> InvestigationResult:
-    stored = _results(request).get(investigation_id)
+    stored = await _store(request).get(investigation_id)
     if stored is None:
         raise NotFoundError(f"Investigation {investigation_id} was not found")
     return stored
@@ -96,12 +97,7 @@ async def list_approvals(
     request: Request,
     _principal: NeedApprovalRead,
 ) -> list[PendingApproval]:
-    pending = [
-        item.approval
-        for item in _results(request).values()
-        if item.status == "awaiting_approval" and item.approval is not None
-    ]
-    return pending
+    return await _store(request).pending_approvals()
 
 
 @router.post("/approvals/{investigation_id}/approve", response_model=InvestigationResult)
@@ -140,10 +136,10 @@ async def _resume(
     service: Any,
     llm: LLMProvider,
     principal: Principal,
-    audit: AuditLog,
+    audit: AuditLog | PostgresAuditLog,
     body: ApprovalDecision,
 ) -> InvestigationResult:
-    current = _results(request).get(investigation_id)
+    current = await _store(request).get(investigation_id)
     if current is None or current.status != "awaiting_approval":
         raise NotFoundError(f"No pending approval for {investigation_id}")
     if body.decision == "approve" and current.approval is None:
@@ -157,8 +153,8 @@ async def _resume(
     }
     runner = _runner(request, service, llm, principal)
     result = await runner.resume(investigation_id, payload)
-    _store_result(request, result)
-    audit.record(
+    await _store(request).put(result)
+    await audit.record(
         "approval_decided",
         username=principal.username,
         role=principal.role,
@@ -169,7 +165,7 @@ async def _resume(
         details={"decision": body.decision},
     )
     if result.work_order is not None:
-        audit.record(
+        await audit.record(
             "work_order_created",
             username=principal.username,
             role=principal.role,
@@ -205,14 +201,9 @@ def _runner(
     )
 
 
-def _results(request: Request) -> dict[str, InvestigationResult]:
-    store = getattr(request.app.state, "investigations", None)
+def _store(request: Request) -> InvestigationStore:
+    store = getattr(request.app.state, "investigation_store", None)
     if store is None:
-        store = {}
-        request.app.state.investigations = store
-    return cast(dict[str, InvestigationResult], store)
-
-
-def _store_result(request: Request, result: InvestigationResult) -> None:
-    if result.investigation_id:
-        _results(request)[result.investigation_id] = result
+        store = MemoryInvestigationStore()
+        request.app.state.investigation_store = store
+    return cast(InvestigationStore, store)

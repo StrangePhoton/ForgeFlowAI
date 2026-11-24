@@ -23,7 +23,9 @@ from forgeflow.db.session import Database
 from forgeflow.observability.logging import configure_logging, get_logger
 from forgeflow.observability.otel import configure_telemetry
 from forgeflow.retrieval.corpus import manuals_index
-from forgeflow.security.audit import AuditLog
+from forgeflow.retrieval.search import SessionFactorySearcher
+from forgeflow.security.audit import AuditLog, PostgresAuditLog
+from forgeflow.services.investigations import MemoryInvestigationStore, PostgresInvestigationStore
 
 logger = get_logger(__name__)
 
@@ -41,9 +43,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.database = database
     app.state.llm_provider = create_llm_provider(settings)
     app.state.approval_gate = ApprovalGate()
-    app.state.document_searcher = manuals_index()
-    app.state.investigations = {}
-    app.state.audit_log = AuditLog()
+    if settings.persist_workflow:
+        app.state.document_searcher = SessionFactorySearcher(database.session_factory)
+        app.state.investigation_store = PostgresInvestigationStore(database.session_factory)
+        app.state.audit_log = PostgresAuditLog(database.session_factory)
+    else:
+        app.state.document_searcher = manuals_index()
+        app.state.investigation_store = MemoryInvestigationStore()
+        app.state.audit_log = AuditLog()
     async with open_checkpointer(settings) as checkpointer:
         app.state.checkpointer = checkpointer
         logger.info(

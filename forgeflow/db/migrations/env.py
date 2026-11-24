@@ -18,6 +18,7 @@ from forgeflow.domain.models import (  # noqa: F401
     Document,
     DocumentChunk,
     Equipment,
+    InvestigationRecord,
     MaintenanceRecord,
     SensorReading,
     UserAccount,

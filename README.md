@@ -1,12 +1,28 @@
 # ForgeFlow AI
 
-Production-oriented industrial agentic AI platform. An engineer submits an operational request; the system plans an investigation, gathers equipment telemetry, alarms, maintenance history, and relevant manual sections through MCP tools, then pauses for human approval before creating a work order.
+An engineer files an operational request. The system plans an investigation, pulls equipment telemetry, alarms, maintenance history, and manual sections through MCP tools, then **stops for a human** before it can create a work order. The model never decides whether a write is allowed.
 
-**Current status: Milestone 10 (open-source polish).** M0–M10 are implemented. Clone, `docker compose up --build`, seed, and you can walk the CNC-042 demo in the browser.
+This is a **lab you can clone**, not a hosted product. The plant is synthetic. The default LLM is an in-process mock. Embeddings are hashed so CI never calls a paid API. Compose still persists investigations, the approval queue, audit events, and logins in PostgreSQL, so restarting the API does not wipe the demo.
+
+```bash
+git clone <repository-url>
+cd forgeflow-ai
+cp .env.example .env
+docker compose up --build
+docker compose exec api python -m forgeflow.domain.seed --reset
+```
+
+Open [http://localhost:3000](http://localhost:3000). Sign in as `engineer` / `engineer-dev`, run `Investigate overheating on CNC-042`, then approve as `manager` / `manager-dev`.
+
+## Demo
+
+Engineer investigation → manager approval → work order, captured from the running console:
+
+![ForgeFlow CNC-042 demo](docs/screenshots/demo.gif)
+
+Still frames and how to recapture: [docs/screenshots/README.md](docs/screenshots/README.md). Script: [docs/demo.md](docs/demo.md).
 
 ## Console
-
-Captured from the running app (not mockups). How to recapture: [docs/screenshots/README.md](docs/screenshots/README.md). Demo recording: [docs/demo.md](docs/demo.md).
 
 | Sign in | Operations dashboard |
 | --- | --- |
@@ -25,11 +41,11 @@ Industrial investigations mix noisy operational data, technical manuals, and wri
 ## What works today
 
 - FastAPI application with versioned health, readiness, auth, equipment history, investigation, approval, and audit endpoints
-- PostgreSQL 16 with pgvector, industrial tables, ingested manual chunks, and optional LangGraph checkpoints
+- PostgreSQL 16 with pgvector: industrial tables, ingested manuals, graph checkpoints, investigations, approvals, audit events, and demo users
 - Deterministic synthetic seed for five fictional machines, including CNC-042, plus fictional manuals
 - MCP tools `get_equipment`, `get_sensor_history`, `get_alarm_history`, `get_maintenance_history`, `search_documentation`, and `create_work_order`
 - LangGraph investigation: request → plan → retrieve operational data and manuals → evidence → report → propose write → interrupt → execute
-- Hashed embeddings (no paid embedding API) stored with pgvector; unit tests search an in-memory index of the same corpus
+- Hashed embeddings (no paid embedding API) stored with pgvector; Compose investigations search those rows, tests use the same hashed corpus in-process
 - Deterministic approval policy plus RBAC: `create_work_order` needs `tools:write` and a human grant of that investigation's idempotency key
 - Bearer-token login with viewer / engineer / maintenance_manager / admin roles; retrieved text cannot skip those checks
 - LLM provider abstraction for OpenAI, Ollama, and an in-process mock (tests and the Compose default never call a paid API)
@@ -76,17 +92,7 @@ The LLM is not a security boundary. Authorization, schema validation, and write-
 
 ## Quick start
 
-Requirements: Docker Desktop (or another Compose-compatible Docker engine). No Ollama or OpenAI key is required for the default mock provider.
-
-```bash
-git clone <repository-url>
-cd forgeflow-ai
-cp .env.example .env
-docker compose up --build
-docker compose exec api python -m forgeflow.domain.seed --reset
-```
-
-Then open [http://localhost:3000](http://localhost:3000), sign in as `engineer` / `engineer-dev`, and run `Investigate overheating on CNC-042`. Approve the write as `manager` / `manager-dev`.
+Requirements: Docker Desktop (or another Compose-compatible Docker engine). No Ollama or OpenAI key is required for the default mock provider. After the commands at the top of this README, the console, API, Prometheus, and Grafana are on the ports below.
 
 | URL | Service |
 | --- | --- |

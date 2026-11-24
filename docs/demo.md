@@ -32,7 +32,7 @@ Peer assets (for example PUMP-AX200) should not propose a cooling work order. Th
 | ScreenToGif | Export a looping GIF under ~8 MB for a GitHub README. |
 | ffmpeg | `ffmpeg -i capture.mp4 -vf "fps=10,scale=1280:-1" docs/screenshots/demo.gif` |
 
-Do not commit a large MP4. Link a GitHub Release asset or keep a short GIF next to the stills in `docs/screenshots/`. Still screenshots are the default README media.
+Do not commit a large MP4. The README links `docs/screenshots/demo.gif`. Keep that GIF under ~8 MB. Still screenshots stay next to it.
 
 ## What the clip should prove
 

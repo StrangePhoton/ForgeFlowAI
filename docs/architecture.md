@@ -30,6 +30,7 @@ Implemented now:
 - Synthetic evaluation runner (`python -m evals`) with JSON and Markdown reports from live runs
 - OpenTelemetry metrics exported at `/metrics`, Prometheus scrape, Grafana operations dashboard
 - Public-repository polish: README screenshots, demo walkthrough, `SECURITY.md`, contributing and local-setup docs
+- Compose persists investigations, approvals, audit events, and login in PostgreSQL; live retrieval uses pgvector
 
 This is the last planned vertical slice. Further work is maintenance, not a new milestone.
 
@@ -124,9 +125,9 @@ Versioned under `/api/v1` (plus `/metrics`). The HTTP surface is:
 | GET | `/api/v1/equipment/{code}/maintenance-history` | Maintenance records |
 | GET | `/api/v1/equipment/{code}/work-orders` | Work orders for the asset |
 | POST | `/api/v1/investigations` | Run the LangGraph investigation |
-| GET | `/api/v1/investigations` | Investigations stored in this API process |
-| GET | `/api/v1/investigations/{id}` | Last stored investigation result in this process |
-| GET | `/api/v1/approvals` | Pending write approvals in this process |
+| GET | `/api/v1/investigations` | Investigations (PostgreSQL outside tests) |
+| GET | `/api/v1/investigations/{id}` | Last stored investigation result |
+| GET | `/api/v1/approvals` | Pending write approvals |
 | POST | `/api/v1/approvals/{id}/approve` | Resume and execute the protected write |
 | POST | `/api/v1/approvals/{id}/reject` | Resume without creating a work order |
 | GET | `/api/v1/audit` | Recent security and workflow events |
@@ -137,7 +138,7 @@ Errors use `{ "error": { "code", "message", "details?" } }`. An investigation th
 
 `python -m evals` runs the in-memory plant against `evals/datasets/scenarios.json` and writes `evals/reports/latest.json` plus `latest.md`. Metrics come from that run only. See [evaluation.md](evaluation.md).
 
-The approval HTTP index is in-process. Graph checkpoints used for resume are MemorySaver in tests and PostgreSQL when `CHECKPOINT_BACKEND=postgres`. The React console at `apps/web` is a Vite SPA: local `npm run dev` proxies `/api` to the API, and the Compose `web` service serves the production build behind nginx on port 3000 with the same `/api` prefix. Screens: login, dashboard, new investigation, investigation detail, workflow timeline, evidence viewer, tool-call viewer, approval queue, and audit log. Timeline and tool-call rows are derived from `InvestigationResult`; the graph does not store hidden chain-of-thought.
+Graph checkpoints used for resume are MemorySaver in tests and PostgreSQL when `CHECKPOINT_BACKEND=postgres`. That same setting persists investigation results, the approval queue, audit events, and operator login so an API restart does not wipe the demo. The React console at `apps/web` is a Vite SPA: local `npm run dev` proxies `/api` to the API, and the Compose `web` service serves the production build behind nginx on port 3000 with the same `/api` prefix. Screens: login, dashboard, new investigation, investigation detail, workflow timeline, evidence viewer, tool-call viewer, approval queue, and audit log. Timeline and tool-call rows are derived from `InvestigationResult`; the graph does not store hidden chain-of-thought.
 
 ## MCP tools
 
@@ -160,13 +161,13 @@ LangGraph nodes: `analyze_request` → `create_plan` → `resolve_equipment` →
 
 ## Retrieval
 
-Fictional manuals live in `sample_data/manuals/`. Chunking is heading/paragraph packing. Embeddings are 256-dimensional feature hashes so CI never calls a paid embedding API. `python -m forgeflow.domain.seed --reset` also ingests chunks into pgvector. The investigation graph uses the same hashed index in-process (`manuals_index()`); integration tests can search PostgreSQL through `PgVectorSearcher`.
+Fictional manuals live in `sample_data/manuals/`. Chunking is heading/paragraph packing. Embeddings are 256-dimensional feature hashes so CI never calls a paid embedding API. `python -m forgeflow.domain.seed --reset` also ingests chunks into pgvector. Compose investigations search those rows through `PgVectorSearcher`. Pytest uses the same hashed corpus in-process (`manuals_index()`).
 
 Retrieved text is evidence, not instructions.
 
 ## Persistence
 
-PostgreSQL is the system of record for operational data, checkpoints, audit events, and embeddings. pgvector is enabled in the first migration. Milestone 1 adds `equipment`, `sensor_readings`, `alarms`, `maintenance_records`, and `work_orders`. Milestone 4/5 add `documents`, `document_chunks`, `approval_requests`, and work-order `idempotency_key`. Milestone 6 adds `users` and `audit_events`.
+PostgreSQL is the system of record for operational data, graph checkpoints, investigation results, approval rows, audit events, users, and embeddings. pgvector is enabled in the first migration. Milestone 1 adds `equipment`, `sensor_readings`, `alarms`, `maintenance_records`, and `work_orders`. Milestone 4/5 add `documents`, `document_chunks`, `approval_requests`, and work-order `idempotency_key`. Milestone 6 adds `users` and `audit_events`. Milestone follow-up adds `investigations` JSONB rows for the HTTP console.
 
 Synthetic catalogs live in `sample_data/`. Hourly telemetry is generated at seed time by `python -m forgeflow.domain.seed`.
 

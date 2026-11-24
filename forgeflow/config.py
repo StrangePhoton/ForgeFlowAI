@@ -110,6 +110,14 @@ class Settings(BaseSettings):
     def cors_origin_list(self) -> list[str]:
         return [part.strip() for part in self.cors_origins.split(",") if part.strip()]
 
+    @property
+    def persist_workflow(self) -> bool:
+        """Persist investigations, audit, and login when graph checkpoints use PostgreSQL.
+
+        Compose sets CHECKPOINT_BACKEND=postgres. Pytest uses memory.
+        """
+        return self.checkpoint_backend == "postgres"
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

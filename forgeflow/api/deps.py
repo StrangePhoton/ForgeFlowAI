@@ -12,7 +12,7 @@ from forgeflow.config import get_settings
 from forgeflow.db.session import Database
 from forgeflow.errors import AuthenticationError, ForbiddenError
 from forgeflow.observability.logging import get_request_id
-from forgeflow.security.audit import AuditLog
+from forgeflow.security.audit import AuditLog, PostgresAuditLog
 from forgeflow.security.principal import Principal
 from forgeflow.security.roles import Permission
 from forgeflow.security.tokens import parse_token
@@ -46,21 +46,21 @@ def get_llm_provider(request: Request) -> LLMProvider:
 LLMProviderDep = Annotated[LLMProvider, Depends(get_llm_provider)]
 
 
-def get_audit_log(request: Request) -> AuditLog:
+def get_audit_log(request: Request) -> AuditLog | PostgresAuditLog:
     log = getattr(request.app.state, "audit_log", None)
     if log is None:
         log = AuditLog()
         request.app.state.audit_log = log
-    return cast(AuditLog, log)
+    return cast(AuditLog | PostgresAuditLog, log)
 
 
-AuditLogDep = Annotated[AuditLog, Depends(get_audit_log)]
+AuditLogDep = Annotated[AuditLog | PostgresAuditLog, Depends(get_audit_log)]
 
 
-def get_principal(request: Request, audit: AuditLogDep) -> Principal:
+async def get_principal(request: Request, audit: AuditLogDep) -> Principal:
     header = request.headers.get("Authorization") or ""
     if not header.startswith("Bearer "):
-        audit.record(
+        await audit.record(
             "authorization_denied",
             status="denied",
             request_id=get_request_id(),
@@ -70,7 +70,7 @@ def get_principal(request: Request, audit: AuditLogDep) -> Principal:
     try:
         principal = parse_token(header.removeprefix("Bearer ").strip(), get_settings())
     except AuthenticationError:
-        audit.record(
+        await audit.record(
             "authorization_denied",
             status="denied",
             request_id=get_request_id(),
@@ -85,9 +85,9 @@ PrincipalDep = Annotated[Principal, Depends(get_principal)]
 
 
 def require_permission(permission: Permission) -> object:
-    def _check(principal: PrincipalDep, audit: AuditLogDep) -> Principal:
+    async def _check(principal: PrincipalDep, audit: AuditLogDep) -> Principal:
         if not principal.allows(permission):
-            audit.record(
+            await audit.record(
                 "authorization_denied",
                 status="denied",
                 username=principal.username,

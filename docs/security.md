@@ -47,4 +47,4 @@ User requests, tool payloads, and retrieved manuals are wrapped in `<untrusted_d
 
 ## Audit
 
-`GET /api/v1/audit` lists in-process events (login success/failure, authorization denials, investigation start, approval decisions, work-order creates). Passwords and tokens are not stored. PostgreSQL has `users` and `audit_events` tables for seeded demo users and later persistence.
+`GET /api/v1/audit` lists login success/failure, authorization denials, investigation start, approval decisions, and work-order creates. Passwords and tokens are not stored. When `CHECKPOINT_BACKEND=postgres`, events go to `audit_events` and login uses the seeded `users` table. Pytest uses `memory` and keeps the audit log and demo directory in-process.

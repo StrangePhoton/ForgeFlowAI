@@ -180,6 +180,22 @@ class DocumentChunk(Base):
     document: Mapped[Document] = relationship(back_populates="chunks")
 
 
+class InvestigationRecord(Base):
+    """Persisted investigation HTTP result. Graph checkpoints remain the resume source."""
+
+    __tablename__ = "investigations"
+    __table_args__ = (
+        Index("ix_investigations_status", "status"),
+        Index("ix_investigations_updated", "updated_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class ApprovalRequest(Base):
     """Human-approval queue row. Graph checkpoints remain the resume source of truth."""
 

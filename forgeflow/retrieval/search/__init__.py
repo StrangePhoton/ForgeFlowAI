@@ -1,7 +1,7 @@
 """pgvector cosine search."""
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from forgeflow.domain.models import DocumentChunk
 from forgeflow.retrieval.embeddings import HashedEmbeddingProvider
@@ -57,3 +57,27 @@ class PgVectorSearcher:
                 reverse=True,
             )
         return hits[: max(1, limit)]
+
+
+class SessionFactorySearcher:
+    """Open a short-lived session for each live investigation search."""
+
+    def __init__(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        embedder: HashedEmbeddingProvider | None = None,
+    ) -> None:
+        self._session_factory = session_factory
+        self._embedder = embedder or HashedEmbeddingProvider()
+
+    async def search(
+        self,
+        query: str,
+        *,
+        equipment_id: str | None = None,
+        limit: int = 5,
+    ) -> list[SearchHit]:
+        async with self._session_factory() as session:
+            return await PgVectorSearcher(session, self._embedder).search(
+                query, equipment_id=equipment_id, limit=limit
+            )

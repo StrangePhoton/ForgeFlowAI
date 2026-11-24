@@ -1,8 +1,13 @@
 """Demo operator accounts. Passwords are local-development secrets, not production IAM."""
 
 from dataclasses import dataclass
+from typing import cast
 from uuid import uuid5
 
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from forgeflow.domain.models import UserAccount
 from forgeflow.domain.seed.constants import SEED_NAMESPACE
 from forgeflow.security.passwords import hash_password, verify_password
 from forgeflow.security.principal import Principal
@@ -62,6 +67,20 @@ def demo_directory() -> UserDirectory:
             )
         _DIRECTORY = UserDirectory(accounts)
     return _DIRECTORY
+
+
+async def authenticate_user(
+    session: AsyncSession, username: str, password: str
+) -> Principal | None:
+    """Authenticate against the seeded `users` table."""
+    row = await session.scalar(select(UserAccount).where(UserAccount.username == username.strip()))
+    if row is None or not row.is_active:
+        return None
+    if not verify_password(password, row.password_hash):
+        return None
+    if row.role not in {"viewer", "engineer", "maintenance_manager", "admin"}:
+        return None
+    return Principal(user_id=row.id, username=row.username, role=cast(Role, row.role))
 
 
 def principal_for_role(role: Role) -> Principal:

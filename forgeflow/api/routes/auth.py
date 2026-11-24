@@ -1,13 +1,13 @@
 """Login and current-principal endpoints."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
 from forgeflow.api.deps import AuditLogDep, PrincipalDep
 from forgeflow.config import get_settings
 from forgeflow.errors import AuthenticationError
 from forgeflow.observability.logging import get_request_id
-from forgeflow.security.accounts import demo_directory
+from forgeflow.security.accounts import authenticate_user, demo_directory
 from forgeflow.security.roles import permissions_for
 from forgeflow.security.tokens import issue_token
 
@@ -34,11 +34,15 @@ class MeResponse(BaseModel):
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(body: LoginRequest, audit: AuditLogDep) -> TokenResponse:
+async def login(body: LoginRequest, audit: AuditLogDep, request: Request) -> TokenResponse:
     settings = get_settings()
-    principal = demo_directory().authenticate(body.username, body.password)
+    if settings.persist_workflow:
+        async with request.app.state.database.session_factory() as session:
+            principal = await authenticate_user(session, body.username, body.password)
+    else:
+        principal = demo_directory().authenticate(body.username, body.password)
     if principal is None:
-        audit.record(
+        await audit.record(
             "login_failure",
             status="denied",
             username=body.username,
@@ -46,7 +50,7 @@ async def login(body: LoginRequest, audit: AuditLogDep) -> TokenResponse:
         )
         raise AuthenticationError("Invalid username or password")
     token = issue_token(principal, settings)
-    audit.record(
+    await audit.record(
         "login_success",
         status="ok",
         username=principal.username,

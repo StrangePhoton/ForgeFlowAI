@@ -18,9 +18,7 @@ async def list_audit_events(
     status: str | None = None,
     limit: int = Query(default=100, ge=1, le=500),
 ) -> list[dict[str, Any]]:
-    return [
-        item.as_dict()
-        for item in audit.list(
-            event_type=event_type, tool_name=tool_name, status=status, limit=limit
-        )
-    ]
+    events = await audit.list(
+        event_type=event_type, tool_name=tool_name, status=status, limit=limit
+    )
+    return [item.as_dict() for item in events]

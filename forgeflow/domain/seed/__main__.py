@@ -4,8 +4,11 @@ import argparse
 import asyncio
 from datetime import UTC, datetime
 
+from sqlalchemy import delete
+
 from forgeflow.config import get_settings
 from forgeflow.db.session import Database
+from forgeflow.domain.models import ApprovalRequest, AuditEventRow, InvestigationRecord
 from forgeflow.domain.seed.generate import generate_plant
 from forgeflow.domain.seed.persist import persist_plant
 from forgeflow.observability.logging import configure_logging, get_logger
@@ -22,6 +25,10 @@ async def seed_async(*, reset: bool, now: datetime | None) -> None:
     database = Database(settings)
     try:
         async with database.session_factory() as session:
+            if reset:
+                await session.execute(delete(ApprovalRequest))
+                await session.execute(delete(InvestigationRecord))
+                await session.execute(delete(AuditEventRow))
             await persist_plant(session, snapshot, reset=reset)
             await ingest_manuals(session, reset=True)
             await persist_demo_users(session)

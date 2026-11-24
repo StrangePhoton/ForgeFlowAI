@@ -12,6 +12,7 @@ from forgeflow.domain.seed.constants import DEMO_CLOCK
 from forgeflow.domain.seed.generate import PlantSnapshot, generate_plant
 from forgeflow.domain.seed.persist import persist_plant
 from forgeflow.retrieval.ingestion import ingest_manuals
+from forgeflow.security.persist import persist_demo_users
 
 SEED_NOW = DEMO_CLOCK
 
@@ -53,6 +54,7 @@ async def seeded_plant(require_postgres: None) -> AsyncIterator[PlantSnapshot]:
         async with database.session_factory() as session:
             await persist_plant(session, snapshot, reset=True)
             await ingest_manuals(session, reset=True)
+            await persist_demo_users(session)
             await session.commit()
         yield snapshot
     finally:

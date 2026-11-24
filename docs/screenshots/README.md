@@ -1,9 +1,10 @@
 # Console screenshots
 
-These images are captured from the running operations console. They are not mockups.
+These images are captured from the running operations console. They are not mockups. `demo.gif` is the same engineer → investigation → manager approve → work order path.
 
 | File | Screen | When to capture |
 | --- | --- | --- |
+| `demo.gif` | Engineer → investigation → manager approve | Same path as [demo.md](../demo.md); rebuilt from the stills below |
 | `login.png` | Sign in | Logged out, [http://localhost:3000/login](http://localhost:3000/login) |
 | `dashboard.png` | Operations dashboard | Engineer session after at least one CNC-042 investigation |
 | `new-investigation.png` | New investigation form | Engineer, request field showing `Investigate overheating on CNC-042` |
