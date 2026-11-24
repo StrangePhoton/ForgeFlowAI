@@ -14,9 +14,23 @@ export function InvestigationDetailPage() {
     if (!id) {
       return;
     }
+    let cancelled = false;
+    setError(null);
+    setItem(null);
     getInvestigation(id)
-      .then(setItem)
-      .catch((err: Error) => setError(err.message));
+      .then((value) => {
+        if (!cancelled) {
+          setItem(value);
+        }
+      })
+      .catch((err: Error) => {
+        if (!cancelled) {
+          setError(err.message);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   if (error) {

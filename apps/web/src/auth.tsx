@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { fetchMe, login as apiLogin, readToken, writeToken } from "./api";
+import { UNAUTHORIZED_EVENT, fetchMe, login as apiLogin, readToken, writeToken } from "./api";
 import type { Me, Role } from "./types";
 
 interface AuthState {
@@ -38,6 +38,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
   }, []);
 
+  useEffect(() => {
+    function onUnauthorized() {
+      writeToken(null);
+      setMe(null);
+    }
+    window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
+  }, []);
+
   const value = useMemo<AuthState>(
     () => ({
       me,
@@ -47,8 +56,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setError(null);
         const token = await apiLogin(username, password);
         writeToken(token);
-        const profile = await fetchMe();
-        setMe(profile);
+        try {
+          const profile = await fetchMe();
+          setMe(profile);
+        } catch (err) {
+          writeToken(null);
+          setMe(null);
+          throw err;
+        }
       },
       logout: () => {
         writeToken(null);

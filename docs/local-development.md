@@ -19,7 +19,7 @@ The API reads:
 - `LLM_MODEL`, `LLM_API_BASE`, `LLM_API_KEY`, `LLM_TEMPERATURE`, `LLM_TIMEOUT_SECONDS`, `LLM_MAX_RETRIES`
 - `FORGEFLOW_AS_OF` — investigation clock for the synthetic plant
 - `MCP_TOOL_TIMEOUT_SECONDS`
-- `CHECKPOINT_BACKEND` — `memory` (tests / host default) or `postgres` (Compose)
+- `CHECKPOINT_BACKEND` — `postgres` (Compose / `.env.example`) or `memory` (pytest)
 - `FORGEFLOW_AUTH_SECRET` — HMAC secret for API bearer tokens
 - `FORGEFLOW_CORS_ORIGINS` — CSV of browser origins for local Vite and the nginx console
 - `FORGEFLOW_OTEL_ENABLED` — OpenTelemetry metrics (default true)

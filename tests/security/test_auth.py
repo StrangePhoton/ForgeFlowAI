@@ -4,8 +4,10 @@ from unittest.mock import AsyncMock
 
 from fastapi.testclient import TestClient
 from forgeflow.api.deps import get_industrial_service
+from forgeflow.config import get_settings
 from forgeflow.domain.seed.constants import DEMO_CLOCK
 from forgeflow.domain.seed.generate import generate_plant
+from forgeflow.security.tokens import _PREFIX, _b64, _sign
 from forgeflow.services.snapshot import InMemoryIndustrialReader
 from tests.conftest import auth_headers
 
@@ -55,6 +57,21 @@ def test_invalid_token_is_401(anonymous_client: TestClient) -> None:
         headers={"Authorization": "Bearer not-a-token"},
     )
     assert response.status_code == 401
+
+
+def test_expired_token_is_401(anonymous_client: TestClient) -> None:
+    payload = (
+        '{"sub":"00000000-0000-4000-8000-000000000001","username":"engineer",'
+        '"role":"engineer","iat":1,"exp":1}'
+    )
+    body = _b64(payload.encode("utf-8"))
+    token = f"{_PREFIX}.{body}.{_sign(body, get_settings().auth_secret)}"
+    response = anonymous_client.get(
+        "/api/v1/equipment",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "unauthenticated"
 
 
 def test_viewer_can_read_equipment(anonymous_client: TestClient) -> None:

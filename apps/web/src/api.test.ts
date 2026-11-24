@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ApiError, apiBase, login, readToken, writeToken } from "./api";
+import { ApiError, apiBase, fetchMe, login, readToken, writeToken } from "./api";
 
 describe("api helpers", () => {
   afterEach(() => {
@@ -38,5 +38,19 @@ describe("api helpers", () => {
       code: "unauthenticated",
       message: "nope",
     } satisfies Partial<ApiError>);
+  });
+
+  it("clears a stored token when a later request is 401", async () => {
+    writeToken("stale-token");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        text: async () => JSON.stringify({ error: { code: "unauthenticated", message: "expired" } }),
+      }),
+    );
+    await expect(fetchMe()).rejects.toMatchObject({ code: "unauthenticated" });
+    expect(readToken()).toBeNull();
   });
 });

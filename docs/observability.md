@@ -10,7 +10,7 @@ ForgeFlow records real HTTP, investigation, tool, retrieval, and LLM operations 
 | [http://localhost:9090](http://localhost:9090) | Prometheus UI (Compose) |
 | [http://localhost:3001](http://localhost:3001) | Grafana (Compose). Anonymous viewer; admin/admin locally |
 
-`/metrics` is public so a local scraper can collect. Do not expose it on an untrusted network without an access control layer.
+`/metrics` is public so a local scraper can collect. Scrapes are excluded from both ForgeFlow HTTP instruments and FastAPI's built-in OpenTelemetry so the endpoint does not record itself. Do not expose it on an untrusted network without an access control layer.
 
 ## Instruments
 

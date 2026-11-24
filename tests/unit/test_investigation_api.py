@@ -94,6 +94,24 @@ def test_approve_creates_one_work_order(client: TestClient) -> None:
     assert len(fake._created_work_orders) == 1
 
 
+def test_approve_path_ignores_reject_body(client: TestClient) -> None:
+    fake = _install_fake(client)
+    started = client.post(
+        "/api/v1/investigations",
+        json={"request": "Investigate overheating on CNC-042"},
+    )
+    investigation_id = started.json()["investigation_id"]
+    approved = client.post(
+        f"/api/v1/approvals/{investigation_id}/approve",
+        json={"decision": "reject", "reason": "should not apply"},
+        headers=auth_headers("maintenance_manager"),
+    )
+    assert approved.status_code == 200
+    assert approved.json()["status"] == "completed"
+    assert approved.json()["work_order"] is not None
+    assert len(fake._created_work_orders) == 1
+
+
 def test_reject_creates_no_work_order(client: TestClient) -> None:
     fake = _install_fake(client)
     started = client.post(

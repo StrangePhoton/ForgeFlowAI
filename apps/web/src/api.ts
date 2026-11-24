@@ -6,6 +6,7 @@ import type {
 } from "./types";
 
 export const TOKEN_KEY = "forgeflow.token";
+export const UNAUTHORIZED_EVENT = "forgeflow:unauthorized";
 
 export class ApiError extends Error {
   status: number;
@@ -59,6 +60,10 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     }
   }
   if (!response.ok) {
+    if (response.status === 401 && path !== "/auth/login") {
+      writeToken(null);
+      window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+    }
     const error = asErrorEnvelope(payload);
     throw new ApiError(response.status, error.code, error.message);
   }

@@ -114,15 +114,9 @@ async def approve_investigation(
     principal: NeedApprovalDecide,
     body: ApprovalDecision | None = None,
 ) -> InvestigationResult:
-    return await _resume(
-        investigation_id,
-        request,
-        service,
-        llm,
-        principal,
-        audit,
-        body or ApprovalDecision(decision="approve"),
-    )
+    decision = body or ApprovalDecision(decision="approve")
+    decision = decision.model_copy(update={"decision": "approve"})
+    return await _resume(investigation_id, request, service, llm, principal, audit, decision)
 
 
 @router.post("/approvals/{investigation_id}/reject", response_model=InvestigationResult)

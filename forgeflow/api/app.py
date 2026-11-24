@@ -1,6 +1,6 @@
 """FastAPI application factory."""
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -26,6 +26,11 @@ from forgeflow.retrieval.corpus import manuals_index
 from forgeflow.security.audit import AuditLog
 
 logger = get_logger(__name__)
+
+
+def _exclude_metrics_scrape(scope: Mapping[str, object]) -> bool:
+    """Prometheus scrapes must not record themselves as HTTP traffic."""
+    return scope.get("path") == "/metrics"
 
 
 @asynccontextmanager
@@ -65,6 +70,10 @@ def create_app() -> FastAPI:
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",
+        telemetry={
+            "metrics": False,
+            "exclude": _exclude_metrics_scrape,
+        },
     )
     application.add_middleware(MetricsMiddleware)
     application.add_middleware(RequestIdMiddleware)
