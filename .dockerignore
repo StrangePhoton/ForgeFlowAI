@@ -14,9 +14,15 @@ htmlcov
 !.env.example
 tests
 docs
-evals
+evals/reports
+evals/**/__pycache__
+!evals
+!evals/datasets
+!evals/datasets/**
 apps/web/node_modules
+apps/web/dist
 **/*.md
 !README.md
+!sample_data/**/*.md
 LICENSE
 CONTRIBUTING.md

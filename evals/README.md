@@ -1,5 +1,11 @@
 # Evaluations
 
-The synthetic evaluation harness (datasets, evaluators, and generated reports) is scheduled for **Milestone 8**.
+Synthetic investigation benchmark.
 
-Reports in this tree must only contain measurements from actual evaluation runs. Do not hand-write benchmark numbers.
+```powershell
+python -m evals
+```
+
+Writes `evals/reports/latest.json` and `evals/reports/latest.md` from an actual run. Do not hand-write those files.
+
+See [docs/evaluation.md](../docs/evaluation.md) for metrics and scenarios.

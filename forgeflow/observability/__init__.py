@@ -1,5 +1,6 @@
-"""Observability helpers for structured logging. Metrics land in Milestone 9."""
+"""Observability helpers for structured logging and OpenTelemetry metrics."""
 
 from forgeflow.observability.logging import configure_logging, get_logger, redact_secrets
+from forgeflow.observability.otel import configure_telemetry
 
-__all__ = ["configure_logging", "get_logger", "redact_secrets"]
+__all__ = ["configure_logging", "configure_telemetry", "get_logger", "redact_secrets"]

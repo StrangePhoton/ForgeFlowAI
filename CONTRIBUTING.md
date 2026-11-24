@@ -1,6 +1,8 @@
 # Contributing
 
-ForgeFlow AI is developed in vertical slices. Milestone 5 is the current baseline: keep the repository bootable with `docker compose up`, a passing test suite, MCP tools, CNC-042 retrieval citations, and a protected work order that is created only after human approval.
+ForgeFlow AI is developed in vertical slices. Milestone 10 is the current baseline: keep the repository bootable with `docker compose up`, a passing test suite, CNC-042 investigations, the operations console, `python -m evals`, `/metrics` populated from real operations, and docs that match what actually runs.
+
+Report security issues using [SECURITY.md](SECURITY.md), not a public bug ticket. Recapture console images using [docs/screenshots/README.md](docs/screenshots/README.md).
 
 ## Development setup
 
@@ -24,10 +26,16 @@ pytest
 Run the same checks CI runs:
 
 ```powershell
-ruff check forgeflow apps tests
-ruff format --check forgeflow apps tests
-mypy forgeflow apps
+ruff check forgeflow apps tests evals
+ruff format --check forgeflow apps tests evals
+mypy forgeflow apps evals
 pytest
+python -m evals
+cd apps/web
+npm ci
+npm run lint
+npm test
+npm run build
 ```
 
 Do not add paid LLM or embedding API calls to the default test suite. External model APIs must remain mockable. Retrieval uses hashed embeddings.
@@ -36,12 +44,12 @@ Do not add paid LLM or embedding API calls to the default test suite. External m
 
 - Prefer deterministic application code over LLM decisions.
 - Put imports at the top of Python modules, not inside functions.
-- Do not commit `.env`, secrets, or proprietary industrial data.
+- Do not commit `.env`, secrets, proprietary industrial data, or hand-written eval report numbers.
 - Document only behavior that is implemented. Mark unfinished work as such.
 - New domain tables belong in Alembic migrations, not ad-hoc SQL in application code.
 
 ## Pull requests
 
-- Keep changes scoped to the current milestone unless a tiny abstraction is required to avoid immediate debt.
+- Keep pull requests small. The planned M0–M10 slices are complete; do not reintroduce unfinished-milestone placeholders.
 - Include tests for API, database, and security-sensitive behavior.
 - Update README and docs when behavior changes.

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (enforcement starts Milestone 6; principles apply immediately).
+Accepted (implemented in Milestone 6).
 
 ## Context
 
@@ -11,13 +11,13 @@ An investigation agent reads untrusted manuals, telemetry, and comments, and can
 ## Decision
 
 - Authentication and RBAC live in application code. Roles: viewer, engineer, maintenance_manager, admin.
-- Tool authorization is checked in the tool layer regardless of what the model requested.
+- HTTP permissions and MCP `RoleToolAuthorizer` both run. `ApprovalGate` remains a second check on `create_work_order`.
 - Retrieved documents and tool outputs are treated as untrusted data, never as instructions.
-- Secrets stay in the environment; logs redact connection-string passwords.
+- Secrets stay in the environment; logs redact connection-string passwords; audit events omit credentials.
 - The LLM is never asked whether a user is allowed to perform an action.
 
 ## Consequences
 
-- Security tests can assert denials without involving a model.
-- Prompt-injection fixtures belong in `tests/security` once retrieval exists. Retrieved manuals are cited as FACT text and cannot grant `create_work_order`.
-- Defense in depth is more important than a clever system prompt.
+- Security tests assert 401/403 and tool denials without involving a paid model.
+- Injection fixtures in `tests/security` show that malicious manual/user text cannot skip approval.
+- Demo HMAC tokens and seeded passwords are for local development, not a production IdP.

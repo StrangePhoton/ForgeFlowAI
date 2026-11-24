@@ -20,21 +20,22 @@ install:
 	$(PYTHON) -m pip install -e ".[dev]"
 
 lint:
-	ruff check forgeflow apps tests
+	ruff check forgeflow apps tests evals
 
 format:
-	ruff format forgeflow apps tests
+	ruff format forgeflow apps tests evals
 
 typecheck:
-	mypy forgeflow apps
+	mypy forgeflow apps evals
 
 test:
 	pytest -q
 
 check: lint
-	ruff format --check forgeflow apps tests
+	ruff format --check forgeflow apps tests evals
 	$(MAKE) typecheck
 	$(MAKE) test
+	$(PYTHON) -m evals
 
 up:
 	$(COMPOSE) up --build -d

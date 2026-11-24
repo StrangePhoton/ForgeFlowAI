@@ -4,7 +4,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Query
 
-from forgeflow.api.deps import IndustrialServiceDep
+from forgeflow.api.deps import IndustrialServiceDep, NeedEquipmentRead
 from forgeflow.domain.schemas import (
     AlarmOut,
     EquipmentOut,
@@ -18,12 +18,16 @@ router = APIRouter(prefix="/equipment", tags=["equipment"])
 
 
 @router.get("", response_model=list[EquipmentOut])
-async def list_equipment(service: IndustrialServiceDep) -> list[EquipmentOut]:
+async def list_equipment(
+    service: IndustrialServiceDep, _principal: NeedEquipmentRead
+) -> list[EquipmentOut]:
     return await service.list_equipment()
 
 
 @router.get("/{code}", response_model=EquipmentOut)
-async def get_equipment(code: str, service: IndustrialServiceDep) -> EquipmentOut:
+async def get_equipment(
+    code: str, service: IndustrialServiceDep, _principal: NeedEquipmentRead
+) -> EquipmentOut:
     return await service.get_equipment(code)
 
 
@@ -31,6 +35,7 @@ async def get_equipment(code: str, service: IndustrialServiceDep) -> EquipmentOu
 async def get_sensor_history(
     code: str,
     service: IndustrialServiceDep,
+    _principal: NeedEquipmentRead,
     start: datetime | None = None,
     end: datetime | None = None,
     limit: int = Query(default=DEFAULT_HISTORY_LIMIT, ge=1, le=MAX_HISTORY_LIMIT),
@@ -42,6 +47,7 @@ async def get_sensor_history(
 async def get_alarm_history(
     code: str,
     service: IndustrialServiceDep,
+    _principal: NeedEquipmentRead,
     start: datetime | None = None,
     end: datetime | None = None,
     limit: int = Query(default=DEFAULT_HISTORY_LIMIT, ge=1, le=MAX_HISTORY_LIMIT),
@@ -51,11 +57,13 @@ async def get_alarm_history(
 
 @router.get("/{code}/maintenance-history", response_model=list[MaintenanceRecordOut])
 async def get_maintenance_history(
-    code: str, service: IndustrialServiceDep
+    code: str, service: IndustrialServiceDep, _principal: NeedEquipmentRead
 ) -> list[MaintenanceRecordOut]:
     return await service.maintenance_history(code)
 
 
 @router.get("/{code}/work-orders", response_model=list[WorkOrderOut])
-async def get_work_orders(code: str, service: IndustrialServiceDep) -> list[WorkOrderOut]:
+async def get_work_orders(
+    code: str, service: IndustrialServiceDep, _principal: NeedEquipmentRead
+) -> list[WorkOrderOut]:
     return await service.work_orders(code)

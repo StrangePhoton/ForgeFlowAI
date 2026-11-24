@@ -53,6 +53,20 @@ class ToolTimeoutError(ForgeFlowError):
         super().__init__(message, code="tool_timeout", status_code=504)
 
 
+class AuthenticationError(ForgeFlowError):
+    """The request is missing valid credentials."""
+
+    def __init__(self, message: str = "Authentication required") -> None:
+        super().__init__(message, code="unauthenticated", status_code=401)
+
+
+class ForbiddenError(ForgeFlowError):
+    """The authenticated principal is not allowed to perform this action."""
+
+    def __init__(self, message: str = "Insufficient permissions") -> None:
+        super().__init__(message, code="forbidden", status_code=403)
+
+
 class ToolAuthorizationError(ForgeFlowError):
     """A tool call was denied by deterministic authorization."""
 

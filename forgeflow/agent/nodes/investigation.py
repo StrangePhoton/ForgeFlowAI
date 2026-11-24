@@ -34,6 +34,7 @@ from forgeflow.mcp.schemas import (
     GET_SENSOR_HISTORY,
     SEARCH_DOCUMENTATION,
 )
+from forgeflow.security.untrusted import wrap_untrusted
 
 TModel = TypeVar("TModel", bound=BaseModel)
 
@@ -54,7 +55,7 @@ class InvestigationNodes:
         analysis = await self._structured(
             schema=RequestAnalysis,
             system=ANALYZE_SYSTEM,
-            user=state["request"],
+            user=wrap_untrusted("user_request", state["request"]),
             fallback=RequestAnalysis(
                 equipment_code=extract_equipment_code(state["request"]),
                 intent="investigate",
@@ -67,10 +68,13 @@ class InvestigationNodes:
         return {"analysis": analysis.model_dump(), "equipment_code": analysis.equipment_code}
 
     async def create_plan(self, state: InvestigationState) -> dict[str, Any]:
-        user = (
-            f"Request: {state['request']}\n"
-            f"Equipment: {state.get('equipment_code') or 'unknown'}\n"
-            "Plan tool-backed steps only."
+        user = wrap_untrusted(
+            "user_request",
+            (
+                f"Request: {state['request']}\n"
+                f"Equipment: {state.get('equipment_code') or 'unknown'}\n"
+                "Plan tool-backed steps only."
+            ),
         )
         plan = await self._structured(
             schema=InvestigationPlan,
@@ -163,10 +167,13 @@ class InvestigationNodes:
         llm_report = await self._structured(
             schema=InvestigationReport,
             system=REPORT_SYSTEM,
-            user=(
-                f"Request: {state['request']}\n"
-                f"Evidence JSON: {evidence}\n"
-                "Return a title and summary. Do not invent facts."
+            user=wrap_untrusted(
+                "evidence",
+                (
+                    f"Request: {state['request']}\n"
+                    f"Evidence JSON: {evidence}\n"
+                    "Return a title and summary. Do not invent facts."
+                ),
             ),
             fallback=deterministic,
         )

@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from forgeflow.config import Settings
 from forgeflow.errors import ProviderError, StructuredOutputError
+from forgeflow.observability.metrics import record_llm_tokens
 
 
 class OpenAIProvider:
@@ -47,4 +48,11 @@ class OpenAIProvider:
         parsed = completion.choices[0].message.parsed
         if parsed is None:
             raise StructuredOutputError("OpenAI returned no parsed object")
+        usage = getattr(completion, "usage", None)
+        if usage is not None:
+            record_llm_tokens(
+                "openai",
+                int(getattr(usage, "prompt_tokens", 0) or 0),
+                int(getattr(usage, "completion_tokens", 0) or 0),
+            )
         return schema.model_validate(parsed.model_dump())

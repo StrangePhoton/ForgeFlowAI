@@ -14,11 +14,13 @@ from forgeflow.db.base import Base
 from forgeflow.domain.models import (  # noqa: F401
     Alarm,
     ApprovalRequest,
+    AuditEventRow,
     Document,
     DocumentChunk,
     Equipment,
     MaintenanceRecord,
     SensorReading,
+    UserAccount,
     WorkOrder,
 )
 

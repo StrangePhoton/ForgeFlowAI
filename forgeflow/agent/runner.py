@@ -1,12 +1,14 @@
 """Run a single investigation through the compiled LangGraph workflow."""
 
 from datetime import UTC, datetime
+from time import perf_counter
 from typing import Any
 from uuid import uuid4
 
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.errors import GraphInterrupt
 from langgraph.types import Command
+from opentelemetry import trace
 
 from forgeflow.agent.graph.investigation import build_investigation_graph
 from forgeflow.agent.models import (
@@ -22,6 +24,9 @@ from forgeflow.agent.state import InvestigationState
 from forgeflow.domain.schemas import WorkOrderOut
 from forgeflow.errors import NotFoundError
 from forgeflow.mcp.runtime import McpToolGateway
+from forgeflow.observability.metrics import record_agent_run, record_approval_request
+
+_tracer = trace.get_tracer("forgeflow")
 
 
 class InvestigationRunner:
@@ -69,18 +74,46 @@ class InvestigationRunner:
             "errors": [],
         }
         config = {"configurable": {"thread_id": thread_id}}
-        raw = await self._invoke(initial, config)
-        return await self._to_result(raw, thread_id, request)
+        return await self._observe("investigation.run", thread_id, initial, config, request)
 
     async def resume(self, investigation_id: str, decision: dict[str, Any]) -> InvestigationResult:
         config = {"configurable": {"thread_id": investigation_id}}
         snapshot = await self._graph.aget_state(config)
         if snapshot.values is None or snapshot.values == {}:
             raise NotFoundError(f"Investigation {investigation_id} was not found")
-        raw = await self._invoke(Command(resume=decision), config)
         values = dict(snapshot.values)
-        request = str(raw.get("request") or values.get("request") or "")
-        return await self._to_result(raw, investigation_id, request)
+        request = str(values.get("request") or "")
+        return await self._observe(
+            "investigation.resume",
+            investigation_id,
+            Command(resume=decision),
+            config,
+            request,
+        )
+
+    async def _observe(
+        self,
+        span_name: str,
+        investigation_id: str,
+        payload: Any,
+        config: dict[str, Any],
+        request: str,
+    ) -> InvestigationResult:
+        started = perf_counter()
+        outcome = "error"
+        try:
+            with _tracer.start_as_current_span(span_name) as span:
+                span.set_attribute("forgeflow.investigation_id", investigation_id)
+                raw = await self._invoke(payload, config)
+                if span_name == "investigation.resume" and not request:
+                    request = str(raw.get("request") or "")
+                result = await self._to_result(raw, investigation_id, request)
+                outcome = result.status
+                if outcome == "awaiting_approval":
+                    record_approval_request()
+                return result
+        finally:
+            record_agent_run(outcome, perf_counter() - started)
 
     async def _invoke(self, payload: Any, config: dict[str, Any]) -> dict[str, Any]:
         try:

@@ -23,10 +23,13 @@ def error_body(code: str, message: str, details: dict[str, Any] | None = None) -
 
 async def forgeflow_error_handler(_request: Request, exc: ForgeFlowError) -> JSONResponse:
     logger.warning("application_error", extra={"forgeflow": {"code": exc.code}})
-    return JSONResponse(
+    response = JSONResponse(
         status_code=exc.status_code,
         content=error_body(exc.code, exc.message, exc.details or None),
     )
+    if exc.status_code == 401:
+        response.headers["WWW-Authenticate"] = "Bearer"
+    return response
 
 
 async def http_exception_handler(_request: Request, exc: StarletteHTTPException) -> JSONResponse:

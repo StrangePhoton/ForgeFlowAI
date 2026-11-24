@@ -1,8 +1,22 @@
 # ForgeFlow AI
 
-Production-oriented industrial agentic AI platform. An engineer can submit an operational request; the system plans an investigation, gathers equipment telemetry, alarms, maintenance history, and relevant manual sections through MCP tools, then pauses for human approval before creating a work order.
+Production-oriented industrial agentic AI platform. An engineer submits an operational request; the system plans an investigation, gathers equipment telemetry, alarms, maintenance history, and relevant manual sections through MCP tools, then pauses for human approval before creating a work order.
 
-**Current status: Milestone 5 (retrieval + human approval).** RAG over fictional manuals and a LangGraph interrupt/resume path for `create_work_order` are implemented. Authentication and the web console are not.
+**Current status: Milestone 10 (open-source polish).** M0–M10 are implemented. Clone, `docker compose up --build`, seed, and you can walk the CNC-042 demo in the browser.
+
+## Console
+
+Captured from the running app (not mockups). How to recapture: [docs/screenshots/README.md](docs/screenshots/README.md). Demo recording: [docs/demo.md](docs/demo.md).
+
+| Sign in | Operations dashboard |
+| --- | --- |
+| ![Sign in](docs/screenshots/login.png) | ![Dashboard](docs/screenshots/dashboard.png) |
+
+| CNC-042 investigation | Approval queue |
+| --- | --- |
+| ![Investigation](docs/screenshots/investigation.png) | ![Approvals](docs/screenshots/approvals.png) |
+
+Also in the repo: [new investigation](docs/screenshots/new-investigation.png) and [audit log](docs/screenshots/audit.png).
 
 ## Problem
 
@@ -10,34 +24,30 @@ Industrial investigations mix noisy operational data, technical manuals, and wri
 
 ## What works today
 
-- FastAPI application with versioned health, readiness, equipment history, investigation, and approval endpoints
+- FastAPI application with versioned health, readiness, auth, equipment history, investigation, approval, and audit endpoints
 - PostgreSQL 16 with pgvector, industrial tables, ingested manual chunks, and optional LangGraph checkpoints
 - Deterministic synthetic seed for five fictional machines, including CNC-042, plus fictional manuals
 - MCP tools `get_equipment`, `get_sensor_history`, `get_alarm_history`, `get_maintenance_history`, `search_documentation`, and `create_work_order`
 - LangGraph investigation: request → plan → retrieve operational data and manuals → evidence → report → propose write → interrupt → execute
 - Hashed embeddings (no paid embedding API) stored with pgvector; unit tests search an in-memory index of the same corpus
-- Deterministic approval policy: `create_work_order` is denied until a human approval grants that investigation's idempotency key
-- LLM provider abstraction for OpenAI, Ollama, and an in-process mock (tests never call a paid API)
-- Environment-based configuration
-- JSON structured logging with secret redaction
-- Docker Compose for `postgres` and `api`
-- pytest, ruff, mypy, and a GitHub Actions workflow
+- Deterministic approval policy plus RBAC: `create_work_order` needs `tools:write` and a human grant of that investigation's idempotency key
+- Bearer-token login with viewer / engineer / maintenance_manager / admin roles; retrieved text cannot skip those checks
+- LLM provider abstraction for OpenAI, Ollama, and an in-process mock (tests and the Compose default never call a paid API)
+- React operations console: login, dashboard, investigation, evidence, tool calls, approval queue, audit log
+- Synthetic evaluation harness (`python -m evals`) with JSON and Markdown reports from actual runs
+- OpenTelemetry metrics for HTTP, agent runs, tools, retrieval, LLM calls, and approvals; Prometheus scrape at `/metrics`
+- Docker Compose Prometheus (9090) and Grafana (3001) with a ForgeFlow operations dashboard
+- pytest, ruff, mypy, Vitest, and a GitHub Actions workflow
 
-## What does not work yet
+See [docs/architecture.md](docs/architecture.md), [docs/security.md](docs/security.md), [docs/evaluation.md](docs/evaluation.md), [docs/observability.md](docs/observability.md), and [docs/local-development.md](docs/local-development.md).
 
-- Authentication and RBAC
-- React operations console
-- Evaluation harness
-- OpenTelemetry / Prometheus / Grafana
-
-See [docs/architecture.md](docs/architecture.md) for the target design and [docs/local-development.md](docs/local-development.md) for setup.
-
-## Architecture (target)
+## Architecture
 
 ```mermaid
 flowchart LR
     User[Operator] --> Web[Web console]
-    Web --> API[FastAPI]
+    Web --> Auth[Bearer RBAC]
+    Auth --> API[FastAPI]
     API --> Graph[LangGraph]
     Graph --> MCP[MCP tools]
     MCP --> DB[(PostgreSQL + pgvector)]
@@ -47,23 +57,7 @@ flowchart LR
     HITL --> User
 ```
 
-Milestone 5 implements retrieval and human approval:
-
-```mermaid
-flowchart LR
-    Client[HTTP client] --> API[FastAPI /api/v1]
-    API --> Graph[LangGraph investigation]
-    Graph --> EqMCP[Equipment MCP]
-    Graph --> MaintMCP[Maintenance MCP]
-    Graph --> DocMCP[Documentation MCP]
-    Graph --> Gate[Approval interrupt]
-    EqMCP --> Reader[IndustrialQueryService]
-    MaintMCP --> Reader
-    DocMCP --> Manuals[Hashed embeddings]
-    Reader --> DB[(PostgreSQL)]
-    Manuals --> DB
-    Gate --> Client
-```
+The LLM is not a security boundary. Authorization, schema validation, and write-action gating live in application code.
 
 ## Technology stack
 
@@ -75,12 +69,14 @@ flowchart LR
 | Agent | LangGraph explicit state graph with interrupt + checkpointer |
 | LLM | OpenAI, Ollama, or in-process mock |
 | Embeddings | Deterministic hashed vectors (256-d); no paid embedding API |
+| Web | React 19, TypeScript, Vite, nginx |
+| Observability | OpenTelemetry metrics, Prometheus, Grafana |
 | Packaging | Docker Compose |
-| Quality | pytest, ruff, mypy, GitHub Actions |
+| Quality | pytest, ruff, mypy, Vitest, GitHub Actions |
 
 ## Quick start
 
-Requirements: Docker Desktop (or another Compose-compatible Docker engine).
+Requirements: Docker Desktop (or another Compose-compatible Docker engine). No Ollama or OpenAI key is required for the default mock provider.
 
 ```bash
 git clone <repository-url>
@@ -90,31 +86,45 @@ docker compose up --build
 docker compose exec api python -m forgeflow.domain.seed --reset
 ```
 
-Then:
+Then open [http://localhost:3000](http://localhost:3000), sign in as `engineer` / `engineer-dev`, and run `Investigate overheating on CNC-042`. Approve the write as `manager` / `manager-dev`.
+
+| URL | Service |
+| --- | --- |
+| [http://localhost:3000](http://localhost:3000) | Operations console |
+| [http://localhost:8000/docs](http://localhost:8000/docs) | OpenAPI |
+| [http://localhost:8000/metrics](http://localhost:8000/metrics) | Prometheus scrape |
+| [http://localhost:9090](http://localhost:9090) | Prometheus UI |
+| [http://localhost:3001](http://localhost:3001) | Grafana (anonymous viewer; admin/admin) |
+
+API checks:
 
 ```bash
 curl http://localhost:8000/api/v1/health
 curl http://localhost:8000/api/v1/ready
-curl http://localhost:8000/api/v1/equipment/CNC-042
-curl -X POST http://localhost:8000/api/v1/investigations \
+TOKEN=$(curl -s -X POST http://localhost:8000/api/v1/auth/login \
   -H "Content-Type: application/json" \
+  -d "{\"username\":\"engineer\",\"password\":\"engineer-dev\"}" | python -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+curl http://localhost:8000/api/v1/equipment/CNC-042 -H "Authorization: Bearer $TOKEN"
+curl -X POST http://localhost:8000/api/v1/investigations \
+  -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
   -d "{\"request\":\"Investigate overheating on CNC-042\"}"
 ```
 
-A CNC-042 investigation returns `status: awaiting_approval` and cites the fictional cooling manual. Approve or reject:
+A CNC-042 investigation returns `status: awaiting_approval` and cites the fictional cooling manual. Approve as `manager` / `manager-dev`:
 
 ```bash
-curl http://localhost:8000/api/v1/approvals
-curl -X POST http://localhost:8000/api/v1/approvals/<investigation_id>/approve \
+MANAGER=$(curl -s -X POST http://localhost:8000/api/v1/auth/login \
   -H "Content-Type: application/json" \
+  -d "{\"username\":\"manager\",\"password\":\"manager-dev\"}" | python -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+curl http://localhost:8000/api/v1/approvals -H "Authorization: Bearer $MANAGER"
+curl -X POST http://localhost:8000/api/v1/approvals/<investigation_id>/approve \
+  -H "Content-Type: application/json" -H "Authorization: Bearer $MANAGER" \
   -d "{\"decision\":\"approve\"}"
 ```
 
-The investigation endpoint uses `LLM_PROVIDER` from `.env`. The Compose default is Ollama; set `LLM_PROVIDER=mock` to run without a model server. Tests always use the mock provider. Compose sets `CHECKPOINT_BACKEND=postgres`; the default test suite uses in-memory checkpoints.
+Set `LLM_PROVIDER=ollama` or `openai` in `.env` if you want a real model. Tests always use the mock provider. Compose sets `CHECKPOINT_BACKEND=postgres`; the default test suite uses in-memory checkpoints.
 
-Interactive API docs: [http://localhost:8000/docs](http://localhost:8000/docs)
-
-Default local credentials in `.env.example` are for development only.
+Default local credentials in `.env.example` are for development only. See [SECURITY.md](SECURITY.md).
 
 ## Demo scenario
 
@@ -129,6 +139,8 @@ CNC-042 (ForgeMach FX-400) has a planted last-30-day pattern:
 
 An investigation for CNC-042 should produce FACT / INFERENCE / RECOMMENDATION findings that cite those signals and the manual, then wait for approval before creating a work order. Peer assets (PUMP-AX200, CONVEYOR-B17, PRESS-HYD-03, COMPRESSOR-C09) do not share that pattern and do not propose a protected write.
 
+Step-by-step recording script: [docs/demo.md](docs/demo.md).
+
 ## Local checks (without Docker)
 
 Python 3.12+ is required. On Windows, create a venv and install extras:
@@ -137,10 +149,16 @@ Python 3.12+ is required. On Windows, create a venv and install extras:
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -e ".[dev]"
-ruff check forgeflow apps tests
-ruff format --check forgeflow apps tests
-mypy forgeflow apps
+ruff check forgeflow apps tests evals
+ruff format --check forgeflow apps tests evals
+mypy forgeflow apps evals
 pytest
+python -m evals
+cd apps/web
+npm ci
+npm run lint
+npm test
+npm run build
 ```
 
 Integration tests skip automatically when PostgreSQL is not reachable. Against a migrated database:
@@ -151,6 +169,8 @@ python -m forgeflow.domain.seed --reset
 pytest -m integration
 ```
 
-## License
+## Contributing and license
 
-MIT. See [LICENSE](LICENSE).
+- [CONTRIBUTING.md](CONTRIBUTING.md)
+- [SECURITY.md](SECURITY.md)
+- MIT. See [LICENSE](LICENSE).

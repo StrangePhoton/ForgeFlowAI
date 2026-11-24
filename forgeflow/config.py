@@ -57,6 +57,22 @@ class Settings(BaseSettings):
     checkpoint_backend: Literal["memory", "postgres"] = Field(
         default="memory", validation_alias="CHECKPOINT_BACKEND"
     )
+    auth_secret: str = Field(
+        default="dev-only-change-me",
+        min_length=8,
+        validation_alias="FORGEFLOW_AUTH_SECRET",
+    )
+    auth_token_ttl_seconds: int = Field(
+        default=28800, ge=60, le=86400, validation_alias="FORGEFLOW_AUTH_TOKEN_TTL_SECONDS"
+    )
+    otel_enabled: bool = Field(default=True, validation_alias="FORGEFLOW_OTEL_ENABLED")
+    cors_origins: str = Field(
+        default=(
+            "http://localhost:5173,http://127.0.0.1:5173,"
+            "http://localhost:3000,http://127.0.0.1:3000"
+        ),
+        validation_alias="FORGEFLOW_CORS_ORIGINS",
+    )
 
     @field_validator("log_level")
     @classmethod
@@ -89,6 +105,10 @@ class Settings(BaseSettings):
         if self.database_url.startswith("postgresql+asyncpg://"):
             return self.database_url.replace("postgresql+asyncpg://", "postgresql://", 1)
         return self.database_url
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [part.strip() for part in self.cors_origins.split(",") if part.strip()]
 
 
 @lru_cache(maxsize=1)

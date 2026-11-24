@@ -2,13 +2,13 @@
 
 ForgeFlow AI is a modular monolith. One Python package (`forgeflow`) owns domain logic, agent orchestration, retrieval, and security. Process entrypoints live under `apps/`. MCP servers may run as separate processes later, but they share the same package and database rather than becoming a microservice mesh.
 
-## Milestone 5 scope
+## Milestone 10 scope
 
 Implemented now:
 
 - FastAPI application factory with `/api/v1/health` and `/api/v1/ready`
 - Equipment registry and history APIs under `/api/v1/equipment`
-- Investigation API `POST /api/v1/investigations` and `GET /api/v1/investigations/{id}`
+- Investigation API `POST /api/v1/investigations`, `GET /api/v1/investigations`, and `GET /api/v1/investigations/{id}`
 - Approval queue `GET /api/v1/approvals` plus approve/reject resume endpoints
 - MCP equipment, maintenance, and documentation servers wrapping `IndustrialQueryService` / retrieval
 - LangGraph investigation graph with retrieval, write proposal, `interrupt()`, and execute
@@ -21,9 +21,17 @@ Implemented now:
 - Alembic migrations, including `CREATE EXTENSION vector`, industrial tables, documents, and approvals
 - Deterministic synthetic seed (CNC-042 overheating scenario) plus fictional manuals
 - Structured JSON logging and request IDs
-- Docker Compose services: `postgres`, `api`
+- Docker Compose services: `postgres`, `api`, `web`, `prometheus`, `grafana`
+- Bearer authentication, RBAC (viewer / engineer / maintenance_manager / admin)
+- Composite tool authorization (`RoleToolAuthorizer` + `ApprovalGate`)
+- Security audit events and untrusted-data wrapping for LLM prompts
+- CORS for local Vite and the nginx console
+- React operations console (login, dashboard, investigation, approvals, audit)
+- Synthetic evaluation runner (`python -m evals`) with JSON and Markdown reports from live runs
+- OpenTelemetry metrics exported at `/metrics`, Prometheus scrape, Grafana operations dashboard
+- Public-repository polish: README screenshots, demo walkthrough, `SECURITY.md`, contributing and local-setup docs
 
-Not implemented: authn/z, UI, evals, OpenTelemetry.
+This is the last planned vertical slice. Further work is maintenance, not a new milestone.
 
 ## Target runtime
 
@@ -87,7 +95,7 @@ flowchart TB
 | `forgeflow/api` | HTTP app, routes, error envelope | 0 |
 | `forgeflow/config.py` | Settings | 0 |
 | `forgeflow/db` | Engine, session, Alembic | 0 |
-| `forgeflow/observability` | Logging (metrics in M9) | 0 |
+| `forgeflow/observability` | Logging, OpenTelemetry metrics | 0 / 9 |
 | `forgeflow/domain` | Equipment, telemetry, work orders | 1 |
 | `forgeflow/services` | Read queries for industrial data | 1 |
 | `forgeflow/mcp` | MCP servers and tool schemas | 2 |
@@ -96,15 +104,19 @@ flowchart TB
 | `forgeflow/security` | Authn, RBAC, tool authz | 6 |
 | `apps/web` | Operations console | 7 |
 | `evals` | Synthetic evaluation runner | 8 |
+| `docs/screenshots` | Console captures for the public README | 10 |
 
 ## HTTP API
 
-Versioned under `/api/v1`. Milestone 5 exposes:
+Versioned under `/api/v1` (plus `/metrics`). The HTTP surface is:
 
 | Method | Path | Meaning |
 | --- | --- | --- |
+| GET | `/metrics` | Prometheus scrape of OpenTelemetry instruments |
 | GET | `/api/v1/health` | Process liveness; no database access |
 | GET | `/api/v1/ready` | Readiness; `SELECT 1` against PostgreSQL |
+| POST | `/api/v1/auth/login` | Issue a bearer token |
+| GET | `/api/v1/auth/me` | Current principal |
 | GET | `/api/v1/equipment` | List seeded assets |
 | GET | `/api/v1/equipment/{code}` | Equipment by code or UUID |
 | GET | `/api/v1/equipment/{code}/sensor-history` | Telemetry; default last 30 days |
@@ -112,16 +124,20 @@ Versioned under `/api/v1`. Milestone 5 exposes:
 | GET | `/api/v1/equipment/{code}/maintenance-history` | Maintenance records |
 | GET | `/api/v1/equipment/{code}/work-orders` | Work orders for the asset |
 | POST | `/api/v1/investigations` | Run the LangGraph investigation |
+| GET | `/api/v1/investigations` | Investigations stored in this API process |
 | GET | `/api/v1/investigations/{id}` | Last stored investigation result in this process |
 | GET | `/api/v1/approvals` | Pending write approvals in this process |
 | POST | `/api/v1/approvals/{id}/approve` | Resume and execute the protected write |
 | POST | `/api/v1/approvals/{id}/reject` | Resume without creating a work order |
+| GET | `/api/v1/audit` | Recent security and workflow events |
 | GET | `/docs` | OpenAPI Swagger UI |
 | GET | `/openapi.json` | OpenAPI schema |
 
 Errors use `{ "error": { "code", "message", "details?" } }`. An investigation that cannot support a cause still returns HTTP 200 with `report.evidence_sufficient = false` and `status = completed`. A CNC-042 investigation that can support a cause returns HTTP 200 with `status = awaiting_approval` and no work order until approve.
 
-The approval HTTP index is in-process. Graph checkpoints used for resume are MemorySaver in tests and PostgreSQL when `CHECKPOINT_BACKEND=postgres`.
+`python -m evals` runs the in-memory plant against `evals/datasets/scenarios.json` and writes `evals/reports/latest.json` plus `latest.md`. Metrics come from that run only. See [evaluation.md](evaluation.md).
+
+The approval HTTP index is in-process. Graph checkpoints used for resume are MemorySaver in tests and PostgreSQL when `CHECKPOINT_BACKEND=postgres`. The React console at `apps/web` is a Vite SPA: local `npm run dev` proxies `/api` to the API, and the Compose `web` service serves the production build behind nginx on port 3000 with the same `/api` prefix. Screens: login, dashboard, new investigation, investigation detail, workflow timeline, evidence viewer, tool-call viewer, approval queue, and audit log. Timeline and tool-call rows are derived from `InvestigationResult`; the graph does not store hidden chain-of-thought.
 
 ## MCP tools
 
@@ -136,7 +152,7 @@ Capabilities are MCP tools, not ad-hoc SQL from the graph. The API process hosts
 | `search_documentation` | `forgeflow-documentation` | Ranked manual chunks |
 | `create_work_order` | `forgeflow-maintenance` | Protected write; requires `ApprovalGate` grant |
 
-Each call is schema-validated, timed, logged, and passed through an authorization hook. Read tools remain allow-all until Milestone 6. `create_work_order` is denied unless the investigation's `idempotency_key` was granted after human approval.
+Each call is schema-validated, timed, logged, and passed through an authorization hook. Read tools require `tools:read`. `create_work_order` requires `tools:write` and a human grant of the investigation's `idempotency_key`.
 
 ## Investigation graph
 
@@ -150,12 +166,12 @@ Retrieved text is evidence, not instructions.
 
 ## Persistence
 
-PostgreSQL is the system of record for operational data, checkpoints, audit events, and embeddings. pgvector is enabled in the first migration. Milestone 1 adds `equipment`, `sensor_readings`, `alarms`, `maintenance_records`, and `work_orders`. Milestone 4/5 add `documents`, `document_chunks`, `approval_requests`, and work-order `idempotency_key`.
+PostgreSQL is the system of record for operational data, checkpoints, audit events, and embeddings. pgvector is enabled in the first migration. Milestone 1 adds `equipment`, `sensor_readings`, `alarms`, `maintenance_records`, and `work_orders`. Milestone 4/5 add `documents`, `document_chunks`, `approval_requests`, and work-order `idempotency_key`. Milestone 6 adds `users` and `audit_events`.
 
 Synthetic catalogs live in `sample_data/`. Hourly telemetry is generated at seed time by `python -m forgeflow.domain.seed`.
 
 ## Configuration
 
-Settings are loaded by `pydantic-settings`. `DATABASE_URL` may be `postgresql://` or `postgresql+asyncpg://`; the application normalizes to asyncpg for SQLAlchemy and to libpq for the LangGraph checkpointer. `LLM_PROVIDER` is `openai`, `ollama`, or `mock`. `FORGEFLOW_AS_OF` pins the investigation clock to the synthetic plant (default in `.env.example`). `CHECKPOINT_BACKEND` is `memory` or `postgres`.
+Settings are loaded by `pydantic-settings`. `DATABASE_URL` may be `postgresql://` or `postgresql+asyncpg://`; the application normalizes to asyncpg for SQLAlchemy and to libpq for the LangGraph checkpointer. `LLM_PROVIDER` is `openai`, `ollama`, or `mock`. `FORGEFLOW_AS_OF` pins the investigation clock to the synthetic plant (default in `.env.example`). `CHECKPOINT_BACKEND` is `memory` or `postgres`. `FORGEFLOW_AUTH_SECRET` signs API bearer tokens. `FORGEFLOW_CORS_ORIGINS` is a CSV list of browser origins for local Vite and the nginx console.
 
-See [local-development.md](local-development.md) and [adr/](adr/).
+See [README](README.md) in this folder, [local-development.md](local-development.md), [security.md](security.md), [evaluation.md](evaluation.md), [observability.md](observability.md), [demo.md](demo.md), [screenshots/README.md](screenshots/README.md), and [adr/](adr/).

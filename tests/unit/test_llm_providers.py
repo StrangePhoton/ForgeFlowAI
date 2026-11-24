@@ -8,6 +8,7 @@ from forgeflow.agent.providers.ollama import OllamaProvider
 from forgeflow.agent.providers.openai import OpenAIProvider
 from forgeflow.config import Settings
 from forgeflow.errors import ProviderError, StructuredOutputError
+from forgeflow.observability.llm import InstrumentedLLM
 from pydantic import BaseModel
 
 
@@ -35,16 +36,19 @@ async def test_mock_provider_rejects_unknown_schema() -> None:
 
 def test_factory_selects_mock_openai_and_ollama() -> None:
     mock = create_llm_provider(Settings.model_validate({"llm_provider": "mock"}))
-    assert isinstance(mock, MockLLMProvider)
+    assert isinstance(mock, InstrumentedLLM)
+    assert isinstance(mock.inner, MockLLMProvider)
     ollama = create_llm_provider(
         Settings.model_validate(
             {"llm_provider": "ollama", "llm_api_base": "http://127.0.0.1:11434"}
         )
     )
-    assert isinstance(ollama, OllamaProvider)
+    assert isinstance(ollama, InstrumentedLLM)
+    assert isinstance(ollama.inner, OllamaProvider)
     with pytest.raises(ProviderError):
         create_llm_provider(Settings.model_validate({"llm_provider": "openai"}))
     openai = create_llm_provider(
         Settings.model_validate({"llm_provider": "openai", "llm_api_key": "sk-test"})
     )
-    assert isinstance(openai, OpenAIProvider)
+    assert isinstance(openai, InstrumentedLLM)
+    assert isinstance(openai.inner, OpenAIProvider)

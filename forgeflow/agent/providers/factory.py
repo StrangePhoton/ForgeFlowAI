@@ -6,13 +6,16 @@ from forgeflow.agent.providers.ollama import OllamaProvider
 from forgeflow.agent.providers.openai import OpenAIProvider
 from forgeflow.config import Settings
 from forgeflow.errors import ProviderError
+from forgeflow.observability.llm import InstrumentedLLM
 
 
 def create_llm_provider(settings: Settings) -> LLMProvider:
     if settings.llm_provider == "mock":
-        return MockLLMProvider()
-    if settings.llm_provider == "openai":
-        return OpenAIProvider(settings)
-    if settings.llm_provider == "ollama":
-        return OllamaProvider(settings)
-    raise ProviderError(f"Unsupported LLM provider {settings.llm_provider}")
+        inner: LLMProvider = MockLLMProvider()
+    elif settings.llm_provider == "openai":
+        inner = OpenAIProvider(settings)
+    elif settings.llm_provider == "ollama":
+        inner = OllamaProvider(settings)
+    else:
+        raise ProviderError(f"Unsupported LLM provider {settings.llm_provider}")
+    return InstrumentedLLM(inner, settings.llm_provider)

@@ -1,0 +1,292 @@
+:root {
+  --bg: #f4f1ea;
+  --panel: #fffdf8;
+  --ink: #1c1915;
+  --muted: #6b645b;
+  --line: #d9d1c4;
+  --accent: #b45309;
+  --accent-ink: #fff7ed;
+  --ok: #166534;
+  --warn: #92400e;
+  --bad: #9f1239;
+  --wait: #1e40af;
+  --header: #1f2933;
+  --mono: "Segoe UI", system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: var(--mono);
+  color: var(--ink);
+  background: var(--bg);
+}
+
+a {
+  color: inherit;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1.4rem;
+  background: var(--header);
+  color: #f8fafc;
+}
+
+.brand {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.nav a {
+  text-decoration: none;
+  color: #cbd5e1;
+  padding: 0.25rem 0.1rem;
+}
+
+.nav a.active {
+  color: #fff;
+  border-bottom: 2px solid var(--accent);
+}
+
+.who {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: #cbd5e1;
+  font-size: 0.9rem;
+}
+
+main {
+  padding: 1.4rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 1rem 1.1rem;
+  margin-bottom: 1rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.8rem;
+}
+
+.stat {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.9rem;
+}
+
+.stat b {
+  display: block;
+  font-size: 1.4rem;
+  margin-top: 0.25rem;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.55rem 0.4rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+.badge {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.badge.completed {
+  background: #dcfce7;
+  color: var(--ok);
+}
+
+.badge.awaiting_approval {
+  background: #dbeafe;
+  color: var(--wait);
+}
+
+.badge.rejected {
+  background: #ffe4e6;
+  color: var(--bad);
+}
+
+.badge.FACT {
+  background: #e2e8f0;
+}
+
+.badge.INFERENCE {
+  background: #fef3c7;
+  color: var(--warn);
+}
+
+.badge.RECOMMENDATION {
+  background: #ffedd5;
+  color: var(--accent);
+}
+
+form.stack,
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+label span {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 0.25rem;
+}
+
+input,
+textarea,
+select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.55rem 0.65rem;
+  background: white;
+}
+
+textarea {
+  min-height: 8rem;
+}
+
+button,
+.button {
+  border: 0;
+  border-radius: 8px;
+  padding: 0.55rem 0.9rem;
+  background: var(--accent);
+  color: var(--accent-ink);
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+}
+
+button.secondary,
+.button.secondary {
+  background: #e7e0d6;
+  color: var(--ink);
+}
+
+button.danger {
+  background: var(--bad);
+  color: white;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.error {
+  color: var(--bad);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.timeline {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.timeline li {
+  display: grid;
+  grid-template-columns: 14px 1fr;
+  gap: 0.7rem;
+  padding-bottom: 0.85rem;
+}
+
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #cbd5e1;
+  margin-top: 0.3rem;
+}
+
+.dot.done {
+  background: var(--ok);
+}
+
+.dot.current {
+  background: var(--wait);
+}
+
+details {
+  border-top: 1px solid var(--line);
+  padding: 0.6rem 0;
+}
+
+details summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.login-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.login-card {
+  width: min(420px, 100%);
+}
+
+.login-card ul {
+  padding-left: 1.1rem;
+  margin: 0 0 0.8rem;
+}
+
+.filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.6rem;
+  margin-bottom: 0.8rem;
+}

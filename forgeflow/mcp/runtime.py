@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
+from time import perf_counter
 from typing import Any
 
 from mcp import ClientSession
@@ -35,6 +37,14 @@ from forgeflow.retrieval.corpus import manuals_index
 from forgeflow.retrieval.search.hits import DocumentSearcher
 from forgeflow.services.protocols import IndustrialReader
 
+
+@dataclass
+class ToolInvocation:
+    name: str
+    ok: bool
+    elapsed_ms: float
+
+
 _ERROR_TYPES: dict[str, type[ForgeFlowError]] = {
     "not_found": NotFoundError,
     "tool_validation_error": ToolValidationError,
@@ -55,6 +65,7 @@ class McpToolGateway:
         self._equipment = equipment
         self._maintenance = maintenance
         self._documentation = documentation
+        self.invocations: list[ToolInvocation] = []
 
     @property
     def equipment_server(self) -> MCPServer[Any]:
@@ -83,6 +94,22 @@ class McpToolGateway:
         return listed
 
     async def call(self, name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
+        started = perf_counter()
+        ok = False
+        try:
+            payload = await self._invoke(name, arguments)
+            ok = True
+            return payload
+        finally:
+            self.invocations.append(
+                ToolInvocation(
+                    name=name,
+                    ok=ok,
+                    elapsed_ms=(perf_counter() - started) * 1000,
+                )
+            )
+
+    async def _invoke(self, name: str, arguments: dict[str, Any] | None) -> dict[str, Any]:
         server = self._server_for(name)
         try:
             result = await server.call_tool(name, arguments or {})

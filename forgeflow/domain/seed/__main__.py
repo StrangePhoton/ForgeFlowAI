@@ -10,6 +10,7 @@ from forgeflow.domain.seed.generate import generate_plant
 from forgeflow.domain.seed.persist import persist_plant
 from forgeflow.observability.logging import configure_logging, get_logger
 from forgeflow.retrieval.ingestion import ingest_manuals
+from forgeflow.security.persist import persist_demo_users
 
 logger = get_logger(__name__)
 
@@ -23,6 +24,7 @@ async def seed_async(*, reset: bool, now: datetime | None) -> None:
         async with database.session_factory() as session:
             await persist_plant(session, snapshot, reset=reset)
             await ingest_manuals(session, reset=True)
+            await persist_demo_users(session)
             await session.commit()
         logger.info(
             "seed_complete",
@@ -47,7 +49,9 @@ def main() -> None:
         help="Delete existing industrial rows before inserting the snapshot",
     )
     args = parser.parse_args()
-    asyncio.run(seed_async(reset=args.reset, now=datetime.now(UTC)))
+    settings = get_settings()
+    clock = settings.investigation_as_of or datetime.now(UTC)
+    asyncio.run(seed_async(reset=args.reset, now=clock))
 
 
 if __name__ == "__main__":

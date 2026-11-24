@@ -1,4 +1,4 @@
-"""Deterministic tool authorization. RBAC enforcement arrives in Milestone 6."""
+"""Deterministic tool authorization. The LLM is never asked whether a call is allowed."""
 
 from typing import Any, Protocol
 

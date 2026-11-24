@@ -37,15 +37,39 @@ jobs:
       - name: Install package
         run: python -m pip install --upgrade pip && pip install -e ".[dev]"
       - name: Ruff lint
-        run: ruff check forgeflow apps tests
+        run: ruff check forgeflow apps tests evals
       - name: Ruff format
-        run: ruff format --check forgeflow apps tests
+        run: ruff format --check forgeflow apps tests evals
       - name: Type check
-        run: mypy forgeflow apps
+        run: mypy forgeflow apps evals
       - name: Apply migrations
         run: alembic upgrade head
       - name: Tests
         run: pytest -q
+      - name: Synthetic evaluation
+        run: python -m evals --output-dir evals/reports
+
+  frontend:
+    name: Frontend checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Typecheck
+        run: npm run lint
+      - name: Tests
+        run: npm test
+      - name: Build
+        run: npm run build
 
   docker:
     name: Docker build
@@ -54,3 +78,5 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build API image
         run: docker build -f infrastructure/docker/api/Dockerfile -t forgeflow-api:ci .
+      - name: Build web image
+        run: docker build -f infrastructure/docker/web/Dockerfile -t forgeflow-web:ci .

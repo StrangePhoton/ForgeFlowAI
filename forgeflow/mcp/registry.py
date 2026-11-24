@@ -2,6 +2,7 @@
 
 import asyncio
 from collections.abc import Awaitable, Callable
+from time import perf_counter
 from typing import Any
 
 from pydantic import BaseModel, ValidationError
@@ -26,6 +27,7 @@ from forgeflow.mcp.schemas import (
     SensorHistoryResult,
 )
 from forgeflow.observability.logging import get_logger
+from forgeflow.observability.metrics import record_retrieval, record_tool_call
 from forgeflow.retrieval.search.hits import DocumentSearcher
 from forgeflow.services.protocols import IndustrialReader
 
@@ -71,6 +73,19 @@ class ToolRegistry:
         return self._timeout_seconds
 
     async def invoke(self, name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
+        started = perf_counter()
+        ok = False
+        try:
+            result = await self._invoke(name, arguments)
+            ok = True
+            return result
+        finally:
+            elapsed = perf_counter() - started
+            record_tool_call(name, ok, elapsed)
+            if name == SEARCH_DOCUMENTATION:
+                record_retrieval(ok, elapsed)
+
+    async def _invoke(self, name: str, arguments: dict[str, Any] | None) -> dict[str, Any]:
         payload = arguments or {}
         self._authorizer.authorize(name, payload)
         input_model = self._inputs.get(name)

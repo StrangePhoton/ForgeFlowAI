@@ -16,6 +16,7 @@ RUN apt-get update \
 COPY pyproject.toml README.md alembic.ini /app/
 COPY forgeflow /app/forgeflow
 COPY apps /app/apps
+COPY evals /app/evals
 COPY sample_data /app/sample_data
 
 RUN pip install --no-cache-dir . \

@@ -37,3 +37,13 @@ def test_api_prefix_normalized() -> None:
         }
     )
     assert settings.api_prefix == "/api/v1"
+
+
+def test_cors_origin_list_splits_csv() -> None:
+    settings = Settings.model_validate(
+        {
+            "database_url": "postgresql+asyncpg://forgeflow:x@localhost:5432/forgeflow",
+            "cors_origins": "http://localhost:5173, http://localhost:3000",
+        }
+    )
+    assert settings.cors_origin_list == ["http://localhost:5173", "http://localhost:3000"]
